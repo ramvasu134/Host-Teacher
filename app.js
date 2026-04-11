@@ -53,7 +53,8 @@
   }
 
   function isUpcoming(meeting) {
-    return new Date(meeting.dateTime) >= new Date();
+    // Meetings whose start time has already passed are treated as past.
+    return new Date(meeting.dateTime) > new Date();
   }
 
   function formatDateTime(iso) {
@@ -97,51 +98,92 @@
     if (filter === 'upcoming') list = list.filter(isUpcoming);
     if (filter === 'past')     list = list.filter(m => !isUpcoming(m));
 
+    // Clear existing content safely
+    meetingsList.textContent = '';
+
     if (list.length === 0) {
-      meetingsList.innerHTML = '<p class="empty-state">No meetings found.</p>';
+      const p = document.createElement('p');
+      p.className = 'empty-state';
+      p.textContent = 'No meetings found.';
+      meetingsList.appendChild(p);
+      updateStats();
       return;
     }
 
-    meetingsList.innerHTML = list.map(m => {
+    list.forEach(m => {
       const upcoming   = isUpcoming(m);
-      const cardClass  = upcoming ? 'upcoming' : 'past';
-      const badgeClass = upcoming ? 'badge-upcoming' : 'badge-past';
-      const badgeText  = upcoming ? 'Upcoming' : 'Past';
       const openPoints = m.points.filter(p => !p.resolved).length;
-      const pointLabel = openPoints === 1 ? '1 open point' : `${openPoints} open points`;
+      const pointLabel = openPoints === 1 ? '1 open point' : openPoints + ' open points';
 
-      return `
-        <div class="meeting-card ${cardClass}" data-id="${m.id}" tabindex="0" role="button" aria-label="Open meeting: ${escapeHtml(m.title)}">
-          <div class="meeting-info">
-            <div class="meeting-title">${escapeHtml(m.title)}</div>
-            <div class="meeting-participants">
-              <span class="role">Host</span>${escapeHtml(m.host)}
-              &nbsp;&nbsp;<span class="role">Teacher</span>${escapeHtml(m.teacher)}
-            </div>
-          </div>
-          <div class="meeting-meta">
-            <div class="meeting-date">📅 ${formatDateTime(m.dateTime)}</div>
-            <div class="status-badge ${badgeClass}">${badgeText}</div>
-            <div class="point-count">💬 ${pointLabel}</div>
-          </div>
-        </div>`;
-    }).join('');
+      // Card container
+      const card = document.createElement('div');
+      card.className = 'meeting-card ' + (upcoming ? 'upcoming' : 'past');
+      card.dataset.id = m.id;
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', 'Open meeting: ' + m.title);
 
-    // Attach click & keyboard listeners
-    meetingsList.querySelectorAll('.meeting-card').forEach(card => {
-      card.addEventListener('click', () => openMeetingModal(card.dataset.id));
+      // Left: title + participants
+      const info = document.createElement('div');
+      info.className = 'meeting-info';
+
+      const titleEl = document.createElement('div');
+      titleEl.className = 'meeting-title';
+      titleEl.textContent = m.title;
+
+      const participants = document.createElement('div');
+      participants.className = 'meeting-participants';
+
+      const hostRole = document.createElement('span');
+      hostRole.className = 'role';
+      hostRole.textContent = 'Host';
+      participants.appendChild(hostRole);
+      participants.appendChild(document.createTextNode('\u00a0' + m.host + '\u00a0\u00a0'));
+
+      const teacherRole = document.createElement('span');
+      teacherRole.className = 'role';
+      teacherRole.textContent = 'Teacher';
+      participants.appendChild(teacherRole);
+      participants.appendChild(document.createTextNode('\u00a0' + m.teacher));
+
+      info.appendChild(titleEl);
+      info.appendChild(participants);
+
+      // Right: date, badge, point count
+      const meta = document.createElement('div');
+      meta.className = 'meeting-meta';
+
+      const dateEl = document.createElement('div');
+      dateEl.className = 'meeting-date';
+      dateEl.textContent = '📅 ' + formatDateTime(m.dateTime);
+
+      const badge = document.createElement('div');
+      badge.className = 'status-badge ' + (upcoming ? 'badge-upcoming' : 'badge-past');
+      badge.textContent = upcoming ? 'Upcoming' : 'Past';
+
+      const pointCount = document.createElement('div');
+      pointCount.className = 'point-count';
+      pointCount.textContent = '💬 ' + pointLabel;
+
+      meta.appendChild(dateEl);
+      meta.appendChild(badge);
+      meta.appendChild(pointCount);
+
+      card.appendChild(info);
+      card.appendChild(meta);
+
+      card.addEventListener('click', () => openMeetingModal(m.id));
       card.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') openMeetingModal(card.dataset.id);
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault(); // prevent page scroll on Space
+          openMeetingModal(m.id);
+        }
       });
+
+      meetingsList.appendChild(card);
     });
 
     updateStats();
-  }
-
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
   }
 
   /* ── Create Meeting ──────────────────────────────────────────── */
@@ -199,12 +241,34 @@
     activeMeetingId = id;
 
     modalTitle.textContent = meeting.title;
-    modalMeta.innerHTML = `
-      <span>👤 <strong>Host:</strong> ${escapeHtml(meeting.host)}</span>
-      <span>🎓 <strong>Teacher:</strong> ${escapeHtml(meeting.teacher)}</span>
-      <span>📅 ${formatDateTime(meeting.dateTime)}</span>
-      <span>${isUpcoming(meeting) ? '🟢 Upcoming' : '⚫ Past'}</span>
-    `;
+
+    // Build modal meta using DOM (no innerHTML with user data)
+    modalMeta.textContent = '';
+
+    const hostSpan = document.createElement('span');
+    hostSpan.appendChild(document.createTextNode('👤\u00a0'));
+    const hostStrong = document.createElement('strong');
+    hostStrong.textContent = 'Host:';
+    hostSpan.appendChild(hostStrong);
+    hostSpan.appendChild(document.createTextNode('\u00a0' + meeting.host));
+
+    const teacherSpan = document.createElement('span');
+    teacherSpan.appendChild(document.createTextNode('🎓\u00a0'));
+    const teacherStrong = document.createElement('strong');
+    teacherStrong.textContent = 'Teacher:';
+    teacherSpan.appendChild(teacherStrong);
+    teacherSpan.appendChild(document.createTextNode('\u00a0' + meeting.teacher));
+
+    const dateSpan = document.createElement('span');
+    dateSpan.textContent = '📅\u00a0' + formatDateTime(meeting.dateTime);
+
+    const statusSpan = document.createElement('span');
+    statusSpan.textContent = isUpcoming(meeting) ? '🟢 Upcoming' : '⚫ Past';
+
+    modalMeta.appendChild(hostSpan);
+    modalMeta.appendChild(teacherSpan);
+    modalMeta.appendChild(dateSpan);
+    modalMeta.appendChild(statusSpan);
 
     meetingNotesEdit.value = meeting.notes || '';
     renderDiscussionPoints(meeting);
@@ -231,22 +295,43 @@
 
   /* ── Discussion Points ───────────────────────────────────────── */
   function renderDiscussionPoints(meeting) {
+    discussionList.textContent = '';
+
     if (!meeting.points || meeting.points.length === 0) {
-      discussionList.innerHTML = '<li class="empty-state" style="list-style:none">No discussion points yet.</li>';
+      const li = document.createElement('li');
+      li.className = 'empty-state';
+      li.style.listStyle = 'none';
+      li.textContent = 'No discussion points yet.';
+      discussionList.appendChild(li);
       return;
     }
 
-    discussionList.innerHTML = meeting.points.map((pt, idx) => `
-      <li class="discussion-item ${pt.resolved ? 'resolved' : ''}" data-idx="${idx}">
-        <input type="checkbox" ${pt.resolved ? 'checked' : ''} aria-label="Mark as resolved" />
-        <span class="point-text ${pt.resolved ? 'done' : ''}">${escapeHtml(pt.text)}</span>
-        <button class="delete-point-btn" aria-label="Delete discussion point" title="Delete">✕</button>
-      </li>`
-    ).join('');
+    meeting.points.forEach((pt, idx) => {
+      const li = document.createElement('li');
+      li.className = 'discussion-item' + (pt.resolved ? ' resolved' : '');
+      li.dataset.idx = idx;
 
-    discussionList.querySelectorAll('.discussion-item').forEach((item, idx) => {
-      item.querySelector('input[type="checkbox"]').addEventListener('change', () => togglePoint(idx));
-      item.querySelector('.delete-point-btn').addEventListener('click', () => deletePoint(idx));
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = pt.resolved;
+      checkbox.setAttribute('aria-label', 'Mark as resolved');
+      checkbox.addEventListener('change', () => togglePoint(idx));
+
+      const textEl = document.createElement('span');
+      textEl.className = 'point-text' + (pt.resolved ? ' done' : '');
+      textEl.textContent = pt.text;
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'delete-point-btn';
+      delBtn.setAttribute('aria-label', 'Delete discussion point');
+      delBtn.title = 'Delete';
+      delBtn.textContent = '✕';
+      delBtn.addEventListener('click', () => deletePoint(idx));
+
+      li.appendChild(checkbox);
+      li.appendChild(textEl);
+      li.appendChild(delBtn);
+      discussionList.appendChild(li);
     });
   }
 
