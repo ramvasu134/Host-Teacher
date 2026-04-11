@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Host-Teacher Meeting Portal</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <h1>🎓 Host-Teacher Meeting Portal</h1>
+      <p class="tagline">Schedule meetings and track discussion points between Hosts and Teachers</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Dashboard stats -->
+    <section class="stats-bar" id="statsBar">
+      <div class="stat-card">
+        <span class="stat-number" id="totalMeetings">0</span>
+        <span class="stat-label">Total Meetings</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number" id="upcomingMeetings">0</span>
+        <span class="stat-label">Upcoming</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number" id="openPoints">0</span>
+        <span class="stat-label">Open Discussion Points</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number" id="resolvedPoints">0</span>
+        <span class="stat-label">Resolved Points</span>
+      </div>
+    </section>
+
+    <!-- New Meeting Form -->
+    <section class="card" id="newMeetingSection">
+      <h2>📅 Schedule a New Meeting</h2>
+      <form id="meetingForm" novalidate>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="meetingTitle">Meeting Title <span class="required">*</span></label>
+            <input type="text" id="meetingTitle" placeholder="e.g. Curriculum Review Q2" required />
+            <span class="error-msg" id="titleError"></span>
+          </div>
+          <div class="form-group">
+            <label for="meetingDate">Date &amp; Time <span class="required">*</span></label>
+            <input type="datetime-local" id="meetingDate" required />
+            <span class="error-msg" id="dateError"></span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="hostName">Host Name <span class="required">*</span></label>
+            <input type="text" id="hostName" placeholder="e.g. Alice Johnson" required />
+            <span class="error-msg" id="hostError"></span>
+          </div>
+          <div class="form-group">
+            <label for="teacherName">Teacher Name <span class="required">*</span></label>
+            <input type="text" id="teacherName" placeholder="e.g. Bob Smith" required />
+            <span class="error-msg" id="teacherError"></span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="meetingNotes">Agenda / Initial Notes</label>
+          <textarea id="meetingNotes" rows="3" placeholder="Briefly describe the purpose of the meeting..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" id="createMeetingBtn">+ Create Meeting</button>
+      </form>
+    </section>
+
+    <!-- Meetings List -->
+    <section class="card" id="meetingsSection">
+      <div class="section-header">
+        <h2>📋 Meetings</h2>
+        <div class="filter-group">
+          <label for="filterStatus">Filter:</label>
+          <select id="filterStatus">
+            <option value="all">All</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="past">Past</option>
+          </select>
+        </div>
+      </div>
+      <div id="meetingsList" class="meetings-list">
+        <p class="empty-state">No meetings scheduled yet. Create one above!</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Meeting Detail Modal -->
+  <div class="modal-overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal">
+      <button class="modal-close" id="modalClose" aria-label="Close modal">&times;</button>
+      <h2 id="modalTitle"></h2>
+      <div class="modal-meta" id="modalMeta"></div>
+
+      <!-- Discussion Points -->
+      <div class="discussion-section">
+        <h3>💬 Discussion Points</h3>
+        <ul class="discussion-list" id="discussionList"></ul>
+
+        <form class="add-point-form" id="addPointForm" novalidate>
+          <input
+            type="text"
+            id="newPointText"
+            placeholder="Add a discussion point…"
+            aria-label="New discussion point"
+          />
+          <button type="submit" class="btn btn-secondary">Add Point</button>
+        </form>
+        <span class="error-msg" id="pointError"></span>
+      </div>
+
+      <!-- Meeting Notes -->
+      <div class="notes-section">
+        <h3>📝 Meeting Notes</h3>
+        <textarea id="meetingNotesEdit" rows="4" placeholder="Add or update notes for this meeting..."></textarea>
+        <button class="btn btn-outline" id="saveNotesBtn">Save Notes</button>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-danger" id="deleteMeetingBtn">Delete Meeting</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
