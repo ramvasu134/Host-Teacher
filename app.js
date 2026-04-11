@@ -37,7 +37,11 @@
 
   /* ── Utilities ───────────────────────────────────────────────── */
   function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    let id;
+    do {
+      id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    } while (meetings.some(m => m.id === id));
+    return id;
   }
 
   function loadMeetings() {
@@ -93,7 +97,10 @@
   function renderMeetings() {
     const filter = filterStatus.value;
 
-    let list = meetings.slice().sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+    // Pre-parse dates once to avoid repeated Date construction in the sort comparator
+    const withTime = meetings.map(m => ({ m, t: new Date(m.dateTime).getTime() }));
+    withTime.sort((a, b) => a.t - b.t);
+    let list = withTime.map(({ m }) => m);
 
     if (filter === 'upcoming') list = list.filter(isUpcoming);
     if (filter === 'past')     list = list.filter(m => !isUpcoming(m));
