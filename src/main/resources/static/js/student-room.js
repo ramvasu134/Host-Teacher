@@ -19,6 +19,7 @@ const ICE_SERVERS = {
 let localStream    = null;
 let stompClient    = null;
 let peerConnections = {};
+let pendingCandidates = {};   // peerId → queued ICE candidates before remoteDesc is set
 let isMicOn        = true;
 let isSpeakerOn    = true;
 let isChatOpen     = false;
@@ -62,20 +63,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainPanel = document.querySelector('.sr-main');
     if (mainPanel) {
         mainPanel.addEventListener('click', (e) => {
-            // Only toggle mic if clicking on the panel itself or logo/video areas
-            // Avoid triggering on interactive elements like buttons or inputs
             const clickedElement = e.target;
             const isInteractive = clickedElement.closest('button, a, input, select, textarea, .sr-chat-dialog, .sr-settings-dropdown, .sr-themes-panel');
             if (!isInteractive) {
                 srToggleMic();
             }
         });
-        // Add cursor pointer style to indicate clickable area
         mainPanel.style.cursor = 'pointer';
     }
 
-    initAudio();
-    connectWebSocket();
+    // CRITICAL: Wait for mic permission BEFORE connecting WebSocket.
+    // This ensures localStream is set when peer connections are created,
+    // so the student's audio tracks are added and the teacher can hear them.
+    initAudio().then(() => connectWebSocket()).catch(() => connectWebSocket());
 });
 
 // ===== Audio init =====
@@ -91,12 +91,28 @@ async function initAudio() {
 }
 
 // ===== WebSocket =====
+let _wsReconnectTimer = null;
+let _wsConnecting = false;
+
 function connectWebSocket() {
+    // Prevent multiple simultaneous connection attempts
+    if (_wsConnecting) return;
+    // If already connected, skip
+    if (stompClient && stompClient.connected) return;
+
+    _wsConnecting = true;
+    // Cleanly disconnect any stale client before creating a new one
+    if (stompClient) {
+        try { stompClient.disconnect(); } catch (e) {}
+        stompClient = null;
+    }
+
     const socket = new SockJS('/ws');
     stompClient  = Stomp.over(socket);
     stompClient.debug = null;
 
     stompClient.connect({}, () => {
+        _wsConnecting = false;
         setConnectionStatus(true);
 
         stompClient.subscribe('/topic/signal/'      + MEETING_CODE, m => handleSignaling(JSON.parse(m.body)));
@@ -104,11 +120,23 @@ function connectWebSocket() {
         stompClient.subscribe('/topic/participant/' + MEETING_CODE, m => handleParticipantEvent(JSON.parse(m.body)));
         stompClient.subscribe('/topic/control/'     + MEETING_CODE, m => handleControlEvent(JSON.parse(m.body)));
 
+        // Subscribe to user-specific notifications (schedule, reminders, etc.)
+        if (USER_ID) {
+            stompClient.subscribe('/topic/notifications/' + USER_ID, m => {
+                const data = JSON.parse(m.body);
+                if (data) showSrNotifToast(data.title, data.message, data.type);
+            });
+        }
+
         sendParticipantEvent('join');
 
     }, () => {
+        _wsConnecting = false;
         setConnectionStatus(false);
-        setTimeout(connectWebSocket, 3000);
+        // Disconnect stale client so next attempt is clean
+        if (stompClient) { try { stompClient.disconnect(); } catch (e) {} stompClient = null; }
+        clearTimeout(_wsReconnectTimer);
+        _wsReconnectTimer = setTimeout(connectWebSocket, 3000);
     });
 }
 
@@ -124,6 +152,8 @@ function setConnectionStatus(online) {
 function handleSignaling(data) {
     const sid = String(data.senderId);
     if (sid === String(USER_ID)) return;
+    // Only process signals that are explicitly targeted at this student (or broadcast with no target)
+    if (data.targetId && String(data.targetId) !== String(USER_ID)) return;
     if      (data.type === 'offer')         handleOffer(sid, data);
     else if (data.type === 'answer')        handleAnswer(sid, data);
     else if (data.type === 'ice-candidate') handleIce(sid, data);
@@ -131,6 +161,8 @@ function handleSignaling(data) {
 }
 
 async function createOffer(targetId) {
+    // Idempotency guard: skip if a connection attempt is already in progress for this peer
+    if (peerConnections[targetId]) return;
     const pc = getOrCreatePC(targetId);
     try {
         const offer = await pc.createOffer();
@@ -143,6 +175,7 @@ async function handleOffer(sid, data) {
     const pc = getOrCreatePC(sid);
     try {
         await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: data.sdp }));
+        await drainCandidates(sid);          // flush any queued ICE candidates
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         send({ type: 'answer', sdp: answer.sdp, targetId: sid });
@@ -151,12 +184,36 @@ async function handleOffer(sid, data) {
 
 async function handleAnswer(sid, data) {
     const pc = peerConnections[sid];
-    if (pc) try { await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: data.sdp })); } catch(e){}
+    if (pc) {
+        try {
+            await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: data.sdp }));
+            await drainCandidates(sid);      // flush any queued ICE candidates
+        } catch(e) { console.error(e); }
+    }
 }
 
 async function handleIce(sid, data) {
     const pc = peerConnections[sid];
-    if (pc && data.candidate) try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e){}
+    if (!pc || !data.candidate) return;
+    // If remote description not set yet, queue the candidate to apply later
+    if (pc.remoteDescription && pc.remoteDescription.type) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e) {}
+    } else {
+        if (!pendingCandidates[sid]) pendingCandidates[sid] = [];
+        pendingCandidates[sid].push(data.candidate);
+    }
+}
+
+// Drain all queued ICE candidates for a peer after remote description is set
+async function drainCandidates(peerId) {
+    const queue = pendingCandidates[peerId];
+    if (!queue || !queue.length) return;
+    delete pendingCandidates[peerId];
+    const pc = peerConnections[peerId];
+    if (!pc) return;
+    for (const c of queue) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch(e) {}
+    }
 }
 
 function getOrCreatePC(peerId) {
@@ -167,10 +224,10 @@ function getOrCreatePC(peerId) {
     if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
     pc.onicecandidate = e => { if (e.candidate) send({ type: 'ice-candidate', candidate: e.candidate, targetId: peerId }); };
-    pc.ontrack = e  => showHostVideo(e.streams[0]);
+    pc.ontrack = e  => playHostAudio(e.streams[0]);
     pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-            hideHostVideo();
+            hideHostAudio();
             delete peerConnections[peerId];
         }
     };
@@ -182,16 +239,63 @@ function send(payload) {
         stompClient.send('/app/signal/' + MEETING_CODE, {}, JSON.stringify(payload));
 }
 
-// ===== Host video =====
-function showHostVideo(stream) {
-    document.getElementById('hostVideo').srcObject = stream;
-    document.getElementById('hostVideoArea').classList.add('active');
-    document.getElementById('waitingCard').classList.add('hidden');
+// ===== Host audio playback =====
+/**
+ * Play the host's audio stream using a hidden <audio> element.
+ * Using <audio> instead of <video> is more reliable for audio-only
+ * streams and avoids browser autoplay-video restrictions.
+ */
+function playHostAudio(stream) {
+    // Reuse or create a hidden audio element
+    let audio = document.getElementById('host-audio-el');
+    if (!audio) {
+        audio = document.createElement('audio');
+        audio.id = 'host-audio-el';
+        audio.autoplay = true;
+        audio.playsInline = true;
+        audio.style.display = 'none';
+        document.body.appendChild(audio);
+    }
+    audio.srcObject = stream;
+
+    // Force play; handle browsers that block autoplay without user gesture
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+        playPromise.catch(() => {
+            // Autoplay was blocked – show the "Click to Hear" button
+            const btn = document.getElementById('unmuteBtn');
+            if (btn) btn.style.display = 'inline-flex';
+        });
+    }
+
+    // Show "Teacher Connected" card, hide waiting card
+    const tc = document.getElementById('teacherConnected');
+    const wc = document.getElementById('waitingCard');
+    if (tc) tc.style.display = 'flex';
+    if (wc) wc.style.display = 'none';
 }
 
-function hideHostVideo() {
-    document.getElementById('hostVideoArea').classList.remove('active');
-    document.getElementById('waitingCard').classList.remove('hidden');
+/** Called by the "Click to Hear Audio" button when autoplay was blocked. */
+function resumeHostAudio() {
+    const audio = document.getElementById('host-audio-el');
+    if (!audio) return;
+    audio.play().then(() => {
+        const btn = document.getElementById('unmuteBtn');
+        if (btn) btn.style.display = 'none';
+    }).catch(() => {});
+}
+
+/** Tear down host audio and return to the waiting state. */
+function hideHostAudio() {
+    const audio = document.getElementById('host-audio-el');
+    if (audio) { audio.srcObject = null; audio.remove(); }
+
+    const tc  = document.getElementById('teacherConnected');
+    const wc  = document.getElementById('waitingCard');
+    const btn = document.getElementById('unmuteBtn');
+    if (tc)  tc.style.display  = 'none';
+    if (wc)  wc.style.display  = '';
+    if (btn) btn.style.display = 'none';
 }
 
 // ===== Participant events =====
@@ -204,18 +308,24 @@ function sendParticipantEvent(type) {
 
 function handleParticipantEvent(data) {
     if (String(data.userId) === String(USER_ID)) return;
-    if (data.event === 'join') createOffer(String(data.userId));
-    else if (data.event === 'leave') {
+    if (data.event === 'join') {
+        // Only initiate a WebRTC connection to the HOST — not to other students
+        if (data.userRole === 'HOST') {
+            createOffer(String(data.userId));
+        }
+    } else if (data.event === 'leave') {
         const pc = peerConnections[String(data.userId)];
         if (pc) { pc.close(); delete peerConnections[String(data.userId)]; }
-        if (Object.keys(peerConnections).length === 0) hideHostVideo();
+        if (Object.keys(peerConnections).length === 0) hideHostAudio();
     }
 }
 
 function handleControlEvent(data) {
     if (data.event === 'end-meeting') {
-        alert('The teacher has ended the meeting.');
-        window.location.href = '/student/room';
+        // Show a brief toast then redirect — avoid blocking alert()
+        showSrNotifToast('Meeting Ended', 'The teacher has ended the meeting.', 'MEETING_STARTED');
+        hideHostAudio();
+        setTimeout(() => { window.location.href = '/student/room'; }, 2500);
     } else if (data.event === 'mute-all') {
         srToggleMic(true);
     }
@@ -294,16 +404,16 @@ function uploadRecording(blob, duration) {
 
 function srToggleSpeaker() {
     isSpeakerOn = !isSpeakerOn;
-    const vid  = document.getElementById('hostVideo');
-    const btn  = document.getElementById('btnSpeaker');
-    const icon = btn.querySelector('i');
-    if (vid) vid.muted = !isSpeakerOn;
+    const audio = document.getElementById('host-audio-el');
+    const btn   = document.getElementById('btnSpeaker');
+    const icon  = btn ? btn.querySelector('i') : null;
+    if (audio) audio.muted = !isSpeakerOn;
     if (isSpeakerOn) {
-        btn.classList.remove('muted');
-        icon.className = 'fas fa-volume-up';
+        if (btn)  btn.classList.remove('muted');
+        if (icon) icon.className = 'fas fa-volume-up';
     } else {
-        btn.classList.add('muted');
-        icon.className = 'fas fa-volume-mute';
+        if (btn)  btn.classList.add('muted');
+        if (icon) icon.className = 'fas fa-volume-mute';
     }
 }
 
@@ -534,7 +644,7 @@ function srSendChat() {
     const input = document.getElementById('srChatInput');
     const msg   = input.value.trim();
     if (!msg || !stompClient || !stompClient.connected) return;
-    stompClient.send('/app/chat/' + MEETING_CODE, {}, JSON.stringify({ message: msg }));
+    stompClient.send('/app/chat/' + MEETING_CODE, {}, JSON.stringify({ content: msg }));
     input.value = '';
 }
 
@@ -548,15 +658,15 @@ function displayChatMessage(data) {
     // Align messages to top when there are items
     body.style.justifyContent = 'flex-start';
 
-    const time = data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const time = data.timestamp || data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const div  = document.createElement('div');
     div.className = 'sr-chat-msg';
     div.innerHTML = `
         <div class="sr-chat-msg-header">
-            <span class="sr-chat-sender">${escHtml(data.senderName || 'Unknown')}</span>
+            <span class="sr-chat-sender">${escHtml(data.senderName || data.userName || 'Unknown')}</span>
             <span class="sr-chat-time">${time}</span>
         </div>
-        <div class="sr-chat-msg-body">${escHtml(data.message)}</div>`;
+        <div class="sr-chat-msg-body">${escHtml(data.content || data.message || '')}</div>`;
     body.appendChild(div);
     body.scrollTop = body.scrollHeight;
 }
@@ -566,3 +676,62 @@ function escHtml(t) {
     d.textContent = t;
     return d.innerHTML;
 }
+
+// ===== Notification Toast (for schedule/reminder notifications in meeting) =====
+function showSrNotifToast(title, message, type) {
+    const typeColor = {
+        'SCHEDULE_CREATED':  '#6366f1',
+        'SCHEDULE_REMINDER': '#f59e0b',
+        'MEETING_STARTED':   '#22c55e',
+        'RECORDING_AVAILABLE': '#38bdf8',
+        'TRANSCRIPT_READY':  '#a78bfa'
+    }[type] || '#6366f1';
+
+    // Add keyframe animation once
+    if (!document.getElementById('srNotifToastKF')) {
+        const s = document.createElement('style');
+        s.id = 'srNotifToastKF';
+        s.textContent = '@keyframes srSlideIn{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}';
+        document.head.appendChild(s);
+    }
+
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position:fixed;top:70px;right:18px;z-index:9999;
+        background:#1e293b;border:1px solid ${typeColor};border-radius:12px;
+        padding:13px 16px;max-width:300px;min-width:240px;
+        box-shadow:0 8px 32px rgba(0,0,0,.5);
+        animation:srSlideIn .3s ease;font-family:inherit;pointer-events:all;
+    `;
+    toast.innerHTML = `
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+            <i class="fas fa-bell" style="color:${typeColor};margin-top:2px;flex-shrink:0;"></i>
+            <div style="flex:1;">
+                <div style="font-weight:700;font-size:13px;color:#f0f6fc;margin-bottom:3px;">${escHtml(title || 'Notification')}</div>
+                <div style="font-size:12px;color:#8b949e;line-height:1.4;">${escHtml(message || '')}</div>
+            </div>
+            <button onclick="this.closest('div[style]').remove()" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:0;font-size:14px;flex-shrink:0;">✕</button>
+        </div>`;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.transition = 'opacity .4s';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 400);
+    }, 6000);
+}
+
+// ===== Cleanup on page leave =====
+window.addEventListener('beforeunload', function() {
+    // Cancel any pending reconnect
+    clearTimeout(_wsReconnectTimer);
+    // Notify other participants
+    if (stompClient && stompClient.connected) {
+        sendParticipantEvent('leave');
+        stompClient.disconnect();
+    }
+    // Close all peer connections
+    Object.values(peerConnections).forEach(function(pc) { try { pc.close(); } catch(e) {} });
+    // Stop local mic stream
+    if (localStream) localStream.getTracks().forEach(function(t) { t.stop(); });
+});
+

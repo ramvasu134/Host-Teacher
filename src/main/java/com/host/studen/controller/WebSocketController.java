@@ -66,10 +66,11 @@ public class WebSocketController {
             CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
             User user = userDetails.getUser();
 
-            // Save to database
+            // Save to database (only if content is non-null and non-empty)
+            String content = (String) message.get("content");
             Meeting meeting = meetingService.findByMeetingCode(meetingCode).orElse(null);
-            if (meeting != null) {
-                chatService.saveMessage(meeting, user, (String) message.get("content"));
+            if (meeting != null && content != null && !content.trim().isEmpty()) {
+                chatService.saveMessage(meeting, user, content);
             }
 
             response.put("senderId", userDetails.getUserId());

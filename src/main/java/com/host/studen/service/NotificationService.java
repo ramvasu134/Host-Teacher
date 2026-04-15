@@ -56,7 +56,7 @@ public class NotificationService {
         String message = String.format("Teacher %s has started a meeting. Join now!", teacherName);
         
         Notification notification = new Notification(user, title, message, NotificationType.MEETING_STARTED);
-        notification.setActionUrl("/student/meeting/join/" + meetingCode);
+        notification.setActionUrl("/meeting/room/" + meetingCode);
         notification.setRelatedEntityId(meetingCode);
         
         Notification saved = notificationRepository.save(notification);

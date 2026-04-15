@@ -60,12 +60,22 @@ async function initMedia() {
 }
 
 // ===== WebSocket Connection =====
+let _wsReconnectTimer = null;
+let _wsConnecting = false;
+
 function connectWebSocket() {
+    if (_wsConnecting) return;
+    if (stompClient && stompClient.connected) return;
+
+    _wsConnecting = true;
+    if (stompClient) { try { stompClient.disconnect(); } catch(e) {} stompClient = null; }
+
     const socket = new SockJS('/ws');
     stompClient = Stomp.over(socket);
     stompClient.debug = null; // Disable debug logging
 
     stompClient.connect({}, (frame) => {
+        _wsConnecting = false;
         console.log('WebSocket connected');
 
         // Subscribe to signaling
@@ -92,8 +102,11 @@ function connectWebSocket() {
         sendParticipantEvent('join');
 
     }, (error) => {
+        _wsConnecting = false;
         console.error('WebSocket error:', error);
-        setTimeout(connectWebSocket, 3000);
+        if (stompClient) { try { stompClient.disconnect(); } catch(e) {} stompClient = null; }
+        clearTimeout(_wsReconnectTimer);
+        _wsReconnectTimer = setTimeout(connectWebSocket, 3000);
     });
 }
 
@@ -658,6 +671,8 @@ function endMeeting() {
 
 function cleanup() {
     sendParticipantEvent('leave');
+    // Cancel any pending reconnect timer
+    clearTimeout(_wsReconnectTimer);
 
     if (localStream) {
         localStream.getTracks().forEach(t => t.stop());

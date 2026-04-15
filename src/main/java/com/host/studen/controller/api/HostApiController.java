@@ -161,6 +161,15 @@ public class HostApiController {
         try {
             User host = userDetails.getUser();
 
+            // ── Guard: must have at least one active schedule ──────────────
+            List<Schedule> schedules = scheduleService.findActiveByTeacher(host);
+            if (schedules.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Please create a schedule first before starting a meeting. Go to Schedules → New Schedule."
+                ));
+            }
+
             // If teacher already has a live meeting, return it
             List<Meeting> liveMeetings = meetingService.findLiveMeetings();
             for (Meeting m : liveMeetings) {

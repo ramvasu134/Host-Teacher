@@ -23,6 +23,24 @@
                 </div>
             </div>
             <!-- Chat button hidden in lobby -->
+            <!-- Notification Bell -->
+                <div class="sr-notif-anchor" style="position:relative;display:inline-block;">
+                    <button class="sr-icon-btn" id="btnNotifToggle" onclick="srToggleNotifPanel(event)" title="Notifications" style="position:relative;">
+                        <i class="fas fa-bell"></i>
+                        <span id="notifBadge" style="display:none;position:absolute;top:2px;right:2px;background:#ef4444;color:#fff;border-radius:50%;font-size:10px;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 3px;">0</span>
+                    </button>
+                    <!-- Notification Panel -->
+                    <div id="srNotifPanel" style="display:none;position:absolute;top:44px;right:0;width:320px;max-height:420px;background:#1e293b;border:1px solid rgba(99,102,241,.25);border-radius:14px;z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.4);overflow:hidden;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(99,102,241,.15);">
+                            <span style="font-weight:700;font-size:14px;color:#f0f6fc;"><i class="fas fa-bell" style="margin-right:6px;color:#6366f1;"></i>Notifications</span>
+                            <button onclick="markAllNotifRead()" style="background:none;border:none;color:#8b949e;font-size:11px;cursor:pointer;">Mark all read</button>
+                        </div>
+                        <div id="srNotifList" style="overflow-y:auto;max-height:350px;padding:4px 0;">
+                            <div id="srNotifEmpty" style="padding:20px;text-align:center;color:#8b949e;font-size:13px;">No notifications</div>
+                        </div>
+                    </div>
+                </div>
+            <!-- Settings toggle — dropdown anchor -->
             <div class="sr-settings-anchor">
                 <button class="sr-icon-btn" id="btnSettingsToggle" onclick="srToggleSettings(event)" title="Settings">
                     <i class="fas fa-cog"></i>
@@ -93,6 +111,14 @@
                      alt="Default Logo"
                      class="sr-teacher-logo-img"/>
             </div>
+        </div>
+
+        <!-- Flash error / success from join redirects -->
+        <div th:if="${error}" style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:10px;color:#fca5a5;font-size:13px;padding:10px 16px;display:flex;align-items:center;gap:8px;max-width:360px;text-align:center;">
+            <i class="fas fa-exclamation-circle"></i><span th:text="${error}"></span>
+        </div>
+        <div th:if="${success}" style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);border-radius:10px;color:#86efac;font-size:13px;padding:10px 16px;display:flex;align-items:center;gap:8px;max-width:360px;text-align:center;">
+            <i class="fas fa-check-circle"></i><span th:text="${success}"></span>
         </div>
 
         <!-- Live meeting notification banner (hidden by default) -->
@@ -189,6 +215,7 @@
     <!-- Hidden user data -->
     <div id="lobbyUserData"
          th:data-user-name="${user.displayName}"
+         th:data-user-id="${user.id}"
          th:data-teacher-name="${user.teacherName}"
          style="display:none;"></div>
 
@@ -197,7 +224,8 @@
     <script>
         // ===== User data =====
         const lobbyEl  = document.getElementById('lobbyUserData');
-        const USER_NAME = lobbyEl ? lobbyEl.dataset.userName : '';
+        const USER_NAME         = lobbyEl ? lobbyEl.dataset.userName : '';
+        const USER_ID           = lobbyEl ? (lobbyEl.dataset.userId || '') : '';
         const USER_TEACHER_NAME = lobbyEl ? (lobbyEl.dataset.teacherName || '') : '';
 
         function buildInitials(n) {
@@ -229,18 +257,33 @@
             // Connect WebSocket for live meeting notifications
             connectLobbyWebSocket();
 
+            // Fetch unread notifications (created while student was offline)
+            fetchUnreadNotifications();
+
             // Start polling for live meetings
             pollLiveMeetings();
             pollTimer = setInterval(pollLiveMeetings, 5000);
         });
 
         // ===== WebSocket (lobby channel) =====
+        let _wsReconnectTimer = null;
+        let _wsConnecting = false;
+
         function connectLobbyWebSocket() {
+            // Prevent multiple simultaneous connection attempts
+            if (_wsConnecting) return;
+            if (stompClient && stompClient.connected) return;
+
+            _wsConnecting = true;
+            // Cleanly disconnect stale client before creating a new one
+            if (stompClient) { try { stompClient.disconnect(); } catch(e) {} stompClient = null; }
+
             try {
                 const socket = new SockJS('/ws');
                 stompClient = Stomp.over(socket);
                 stompClient.debug = null;
                 stompClient.connect({}, () => {
+                    _wsConnecting = false;
                     setStatus(true);
                     // Subscribe to global meeting-live notifications
                     stompClient.subscribe('/topic/meeting/live', msg => {
@@ -253,11 +296,25 @@
                             }
                         }
                     });
+                    // Subscribe to user-specific notification channel
+                    if (USER_ID) {
+                        stompClient.subscribe('/topic/notifications/' + USER_ID, msg => {
+                            const data = JSON.parse(msg.body);
+                            if (data) {
+                                addNotifToPanel(data);
+                                showNotifToast(data.title, data.message, data.type);
+                            }
+                        });
+                    }
                 }, () => {
+                    _wsConnecting = false;
                     setStatus(false);
-                    setTimeout(connectLobbyWebSocket, 3000);
+                    // Disconnect stale client so next attempt is clean
+                    if (stompClient) { try { stompClient.disconnect(); } catch(e) {} stompClient = null; }
+                    clearTimeout(_wsReconnectTimer);
+                    _wsReconnectTimer = setTimeout(connectLobbyWebSocket, 3000);
                 });
-            } catch(e) {}
+            } catch(e) { _wsConnecting = false; }
         }
 
         function setStatus(online) {
@@ -459,6 +516,139 @@
         }
 
         function escHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+        // ===== Notification Functions =====
+        let notifCount = 0;
+        let notifPanelOpen = false;
+
+        function srToggleNotifPanel(e) {
+            if (e) e.stopPropagation();
+            notifPanelOpen = !notifPanelOpen;
+            document.getElementById('srNotifPanel').style.display = notifPanelOpen ? 'block' : 'none';
+        }
+
+        // Close notif panel on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.sr-notif-anchor')) {
+                notifPanelOpen = false;
+                const panel = document.getElementById('srNotifPanel');
+                if (panel) panel.style.display = 'none';
+            }
+        });
+
+        function updateNotifBadge() {
+            const badge = document.getElementById('notifBadge');
+            if (!badge) return;
+            if (notifCount > 0) {
+                badge.textContent = notifCount > 99 ? '99+' : notifCount;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function addNotifToPanel(n) {
+            const list = document.getElementById('srNotifList');
+            const empty = document.getElementById('srNotifEmpty');
+            if (empty) empty.style.display = 'none';
+
+            const typeIcon = {
+                'SCHEDULE_CREATED': '📅',
+                'SCHEDULE_REMINDER': '⏰',
+                'MEETING_STARTED': '🎥',
+                'RECORDING_AVAILABLE': '🎞️',
+                'TRANSCRIPT_READY': '📝'
+            }[n.type] || '🔔';
+
+            const item = document.createElement('div');
+            item.dataset.notifId = n.id || '';
+            item.style.cssText = 'padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;transition:background .15s;';
+            item.onmouseenter = () => { item.style.background = 'rgba(99,102,241,.1)'; };
+            item.onmouseleave = () => { item.style.background = ''; };
+            item.innerHTML = `
+                <div style="display:flex;gap:10px;align-items:flex-start;">
+                    <span style="font-size:20px;flex-shrink:0;">${typeIcon}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;font-size:13px;color:#f0f6fc;margin-bottom:2px;">${escHtml(n.title || '')}</div>
+                        <div style="font-size:12px;color:#8b949e;line-height:1.4;">${escHtml(n.message || '')}</div>
+                    </div>
+                </div>`;
+            // Insert at the top
+            if (list.firstChild) {
+                list.insertBefore(item, list.firstChild);
+            } else {
+                list.appendChild(item);
+            }
+
+            if (!n.read) {
+                notifCount++;
+                updateNotifBadge();
+            }
+        }
+
+        function fetchUnreadNotifications() {
+            fetch('/api/student/notifications/unread')
+                .then(r => r.json())
+                .then(list => {
+                    if (!Array.isArray(list) || list.length === 0) return;
+                    list.forEach(n => addNotifToPanel(n));
+                })
+                .catch(() => {});
+        }
+
+        function markAllNotifRead() {
+            fetch('/api/student/notifications/read-all', { method: 'POST' })
+                .then(r => r.json())
+                .then(() => {
+                    notifCount = 0;
+                    updateNotifBadge();
+                })
+                .catch(() => {});
+        }
+
+        function showNotifToast(title, message, type) {
+            const typeColor = {
+                'SCHEDULE_CREATED': '#6366f1',
+                'SCHEDULE_REMINDER': '#f59e0b',
+                'MEETING_STARTED': '#22c55e',
+                'RECORDING_AVAILABLE': '#38bdf8',
+                'TRANSCRIPT_READY': '#a78bfa'
+            }[type] || '#6366f1';
+
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position:fixed;top:70px;right:20px;z-index:9999;
+                background:#1e293b;border:1px solid ${typeColor};border-radius:12px;
+                padding:14px 18px;max-width:320px;min-width:260px;
+                box-shadow:0 8px 32px rgba(0,0,0,.5);
+                animation:slideInRight .3s ease;font-family:inherit;
+            `;
+            toast.innerHTML = `
+                <div style="display:flex;gap:10px;align-items:flex-start;">
+                    <i class="fas fa-bell" style="color:${typeColor};margin-top:2px;flex-shrink:0;"></i>
+                    <div style="flex:1;">
+                        <div style="font-weight:700;font-size:13px;color:#f0f6fc;margin-bottom:3px;">${escHtml(title || 'New Notification')}</div>
+                        <div style="font-size:12px;color:#8b949e;line-height:1.4;">${escHtml(message || '')}</div>
+                    </div>
+                    <button onclick="this.closest('div[style]').remove()" style="background:none;border:none;color:#8b949e;cursor:pointer;padding:0;font-size:14px;flex-shrink:0;">✕</button>
+                </div>`;
+            document.body.appendChild(toast);
+
+            // Add animation style if not already added
+            if (!document.getElementById('notifToastStyle')) {
+                const style = document.createElement('style');
+                style.id = 'notifToastStyle';
+                style.textContent = '@keyframes slideInRight{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}';
+                document.head.appendChild(style);
+            }
+
+            setTimeout(() => {
+                toast.style.animation = 'none';
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity .4s';
+                setTimeout(() => toast.remove(), 400);
+            }, 6000);
+        }
     </script>
 </body>
 </html>

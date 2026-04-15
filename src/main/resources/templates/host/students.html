@@ -272,6 +272,17 @@
         const teacherNameForShare = '[[${user.teacherName}]]';
         let currentShareStudent = { name: '', username: '' };
 
+        // Auto-dismiss server-side alert banners after 4 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.alert-custom').forEach(function(banner) {
+                setTimeout(function() {
+                    banner.style.transition = 'opacity 0.5s ease';
+                    banner.style.opacity = '0';
+                    setTimeout(function() { banner.style.display = 'none'; }, 500);
+                }, 4000);
+            });
+        });
+
         function filterStudents() {
             const query = document.getElementById('studentSearch').value.toLowerCase();
             document.querySelectorAll('.student-row').forEach(row => {
@@ -282,14 +293,73 @@
         }
 
         function editStudent(btn) {
-            // Could open an edit modal
-            alert('Edit functionality - Student ID: ' + btn.dataset.id);
+            const id       = btn.dataset.id;
+            const name     = btn.dataset.name;
+            const username = btn.dataset.username;
+            const email    = btn.dataset.email || '';
+
+            const newName = prompt('Edit display name:', name);
+            if (newName === null) return;           // cancelled
+            if (!newName.trim()) { alert('Display name cannot be empty.'); return; }
+
+            const newPwd = prompt('New password (leave blank to keep current):', '');
+            if (newPwd === null) return;            // cancelled
+
+            const body = {};
+            if (newName.trim() !== name)  body.displayName = newName.trim();
+            if (newPwd.trim())            body.newPassword  = newPwd.trim();
+            if (!body.displayName && !body.newPassword) return; // nothing changed
+
+            fetch(`/api/host/students/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    showToast('Student updated successfully.', 'success');
+                    setTimeout(() => location.reload(), 1200);
+                } else {
+                    showToast(d.message || 'Update failed.', 'error');
+                }
+            })
+            .catch(() => showToast('Network error. Please try again.', 'error'));
         }
 
         function resetPassword(btn) {
-            if (confirm('Reset password for this student?')) {
-                alert('Password reset - Student ID: ' + btn.dataset.id);
-            }
+            const id = btn.dataset.id;
+            const newPwd = prompt('Enter new password for this student:');
+            if (newPwd === null) return;           // cancelled
+            if (newPwd.trim().length < 4) { alert('Password must be at least 4 characters.'); return; }
+
+            fetch(`/api/host/students/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newPassword: newPwd.trim() })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    showToast('Password reset successfully.', 'success');
+                } else {
+                    showToast(d.message || 'Reset failed.', 'error');
+                }
+            })
+            .catch(() => showToast('Network error. Please try again.', 'error'));
+        }
+
+        function showToast(message, type) {
+            const el = document.createElement('div');
+            el.className = 'alert-custom alert-' + (type === 'success' ? 'success' : 'danger');
+            el.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;min-width:280px;';
+            el.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : 'exclamation'}-circle me-2"></i>${message}`;
+            document.body.appendChild(el);
+            setTimeout(() => {
+                el.style.transition = 'opacity 0.5s';
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 500);
+            }, 3500);
         }
 
         function shareStudent(btn) {

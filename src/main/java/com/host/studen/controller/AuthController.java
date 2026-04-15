@@ -45,7 +45,6 @@ public class AuthController {
 
     @GetMapping("/login")
     public String loginPage(@RequestParam(value = "error", required = false) String error,
-                            @RequestParam(value = "logout", required = false) String logout,
                             Model model, Authentication authentication) {
         if (isRealUser(authentication)) {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
@@ -58,9 +57,7 @@ public class AuthController {
         if (error != null) {
             model.addAttribute("error", "Invalid teacher name, username, or password.");
         }
-        if (logout != null) {
-            model.addAttribute("message", "You have been logged out successfully.");
-        }
+        // Note: logout message is shown via th:if="${param.logout}" in login.html — no duplicate needed here
         model.addAttribute("loginRequest", new LoginRequest());
         return "login";
     }
