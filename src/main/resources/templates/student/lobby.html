@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waiting Room</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/student-room.css}" rel="stylesheet">
+</head>
+<body>
+
+    <!-- ===== TOP HEADER BAR ===== -->
+    <header class="sr-header">
+        <div class="sr-header-left">
+            <span class="sr-meeting-title">Waiting Room</span>
+        </div>
+        <div class="sr-header-right">
+            <div class="sr-user-badge">
+                <span class="sr-user-initials" id="userInitials">?</span>
+                <div class="sr-status">
+                    <span class="sr-status-dot" id="statusDot"></span>
+                    <span class="sr-status-text" id="statusText">Waiting</span>
+                </div>
+            </div>
+            <!-- Chat button hidden in lobby -->
+            <div class="sr-settings-anchor">
+                <button class="sr-icon-btn" id="btnSettingsToggle" onclick="srToggleSettings(event)" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <!-- Settings dropdown -->
+                <div class="sr-settings-dropdown" id="srSettingsDropdown">
+                    <a href="#" class="sr-dd-item" onclick="srOpenRecordings(event)">
+                        <i class="fas fa-circle-play"></i>
+                        <span>Recordings</span>
+                    </a>
+                    <a href="#" class="sr-dd-item" onclick="srOpenChangePassword(event)">
+                        <i class="fas fa-key"></i>
+                        <span>Change Password</span>
+                    </a>
+                    <div class="sr-dd-item sr-dd-toggle-item">
+                        <div class="sr-dd-item-left">
+                            <i class="fas fa-video"></i>
+                            <span>Auto Join</span>
+                        </div>
+                        <label class="sr-toggle">
+                            <input type="checkbox" id="autoJoinToggle" onchange="srAutoJoinChanged(this)">
+                            <span class="sr-toggle-slider"></span>
+                        </label>
+                    </div>
+                    <a href="#" class="sr-dd-item" onclick="srOpenThemes(event)">
+                        <i class="fas fa-palette"></i>
+                        <span>Themes</span>
+                    </a>
+                    <div class="sr-dd-divider"></div>
+                    <form th:action="@{/logout}" method="post" style="margin:0">
+                        <button type="submit" class="sr-dd-item sr-dd-logout">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Themes Panel -->
+                <div class="sr-themes-panel" id="srThemesPanel">
+                    <button class="sr-theme-item" data-theme="light"       onclick="srApplyTheme('light')"><span class="sr-theme-sel" id="tsel-light"></span><span class="sr-theme-emoji">☀️</span><span>Light</span></button>
+                    <button class="sr-theme-item" data-theme="dark"        onclick="srApplyTheme('dark')"><span class="sr-theme-sel" id="tsel-dark"></span><span class="sr-theme-emoji">🌙</span><span>Dark</span></button>
+                    <button class="sr-theme-item" data-theme="ocean"       onclick="srApplyTheme('ocean')"><span class="sr-theme-sel" id="tsel-ocean"></span><span class="sr-theme-emoji">🌊</span><span>Ocean</span></button>
+                    <button class="sr-theme-item" data-theme="forest"      onclick="srApplyTheme('forest')"><span class="sr-theme-sel" id="tsel-forest"></span><span class="sr-theme-emoji">🌲</span><span>Forest</span></button>
+                    <button class="sr-theme-item" data-theme="matte-black" onclick="srApplyTheme('matte-black')"><span class="sr-theme-sel" id="tsel-matte-black"></span><span class="sr-theme-emoji">🖤</span><span>Matte Black</span></button>
+                    <button class="sr-theme-item" data-theme="purple"      onclick="srApplyTheme('purple')"><span class="sr-theme-sel" id="tsel-purple"></span><span class="sr-theme-emoji">💜</span><span>Purple</span></button>
+                    <button class="sr-theme-item sr-theme-item-locked" data-theme="dull-white" title="Coming soon"><span class="sr-theme-sel" id="tsel-dull-white"></span><span class="sr-theme-emoji">🤍</span><span>Dull White</span></button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== RAINBOW GRADIENT BAR ===== -->
+    <div class="sr-gradient-bar"></div>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <div class="sr-main">
+        <!-- Teacher Logo -->
+        <div class="sr-logo-container">
+            <div class="sr-logo-ring"></div>
+            <div class="sr-logo-inner">
+                <!-- Show teacher's custom logo if available, otherwise default logo -->
+                <img th:if="${teacher != null and teacher.teacherLogo != null and !teacher.teacherLogo.isEmpty()}"
+                     th:src="${teacher.teacherLogo}"
+                     alt="Teacher Logo"
+                     class="sr-teacher-logo-img"/>
+                <img th:unless="${teacher != null and teacher.teacherLogo != null and !teacher.teacherLogo.isEmpty()}"
+                     th:src="@{/images/default-teacher-logo.svg}"
+                     alt="Default Logo"
+                     class="sr-teacher-logo-img"/>
+            </div>
+        </div>
+
+        <!-- Live meeting notification banner (hidden by default) -->
+        <div class="sr-waiting-card" id="liveBanner" style="display:none; flex-direction:column; gap:12px; padding:20px 32px;">
+            <span class="sr-waiting-text" id="liveBannerText">Meeting is live!</span>
+            <button onclick="joinLiveMeeting()" style="background:var(--sr-green);color:#fff;border:none;border-radius:10px;padding:10px 28px;font-size:14px;font-weight:600;cursor:pointer;">
+                <i class="fas fa-door-open" style="margin-right:6px;"></i>Join Now
+            </button>
+        </div>
+
+        <!-- Waiting message -->
+        <div class="sr-waiting-card" id="waitingCard">
+            <span class="sr-waiting-text">Wait For Teacher To Join</span>
+        </div>
+    </div>
+
+    <!-- ===== BOTTOM CONTROL BAR ===== -->
+    <footer class="sr-controls">
+        <div></div>
+        <div></div>
+        <div></div>
+    </footer>
+
+    <!-- ===== RECORDINGS MODAL ===== -->
+    <div class="sr-modal-overlay" id="srRecordingsOverlay" onclick="srCloseRecordings()"></div>
+    <div class="sr-recordings-modal" id="srRecordingsModal">
+        <div class="sr-rmodal-header">
+            <div class="sr-rmodal-title">
+                <i class="fas fa-circle-dot" style="color:#ef4444;"></i>
+                <span>Recordings</span>
+            </div>
+            <button class="sr-dialog-close" onclick="srCloseRecordings()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="sr-rmodal-body">
+            <div class="sr-rec-info-bar">
+                <div class="sr-rec-info-text">
+                    <i class="fas fa-circle-info" style="color:#60a5fa; font-size:15px;"></i>
+                    <span>Your recordings will delete after 5 days. Please delete the recording if not required to save space.</span>
+                </div>
+                <div class="sr-rec-actions">
+                    <button class="sr-rec-btn sr-rec-save" onclick="srSaveAllRecordings()">
+                        <i class="fas fa-download"></i> Save All
+                    </button>
+                    <button class="sr-rec-btn sr-rec-clear" onclick="srClearAllRecordings()">
+                        <i class="fas fa-trash"></i> Clear All
+                    </button>
+                </div>
+            </div>
+            <div class="sr-rec-list" id="srRecordingsList">
+                <div class="sr-rec-empty" id="srRecordingsEmpty">
+                    No recordings yet. Start speaking when unmuted to create recordings.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CHANGE PASSWORD MODAL ===== -->
+    <div class="sr-modal-overlay" id="srPasswordOverlay" onclick="srCloseChangePassword()"></div>
+    <div class="sr-pwd-modal" id="srPasswordModal">
+        <div class="sr-pwd-header">
+            <span class="sr-pwd-title">Change Password</span>
+            <button class="sr-dialog-close" onclick="srCloseChangePassword()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="sr-pwd-body">
+            <div class="sr-form-group">
+                <label class="sr-form-label">Current Password</label>
+                <div class="sr-input-wrap">
+                    <input type="password" id="pwdCurrent" class="sr-form-input" placeholder="Enter current password">
+                    <button type="button" class="sr-eye-btn" onclick="srToggleEye('pwdCurrent',this)"><i class="fas fa-eye"></i></button>
+                </div>
+            </div>
+            <div class="sr-form-group">
+                <label class="sr-form-label">New Password</label>
+                <div class="sr-input-wrap">
+                    <input type="password" id="pwdNew" class="sr-form-input" placeholder="Enter new password (min 6 characters)">
+                    <button type="button" class="sr-eye-btn" onclick="srToggleEye('pwdNew',this)"><i class="fas fa-eye"></i></button>
+                </div>
+            </div>
+            <div class="sr-form-group">
+                <label class="sr-form-label">Confirm New Password</label>
+                <div class="sr-input-wrap">
+                    <input type="password" id="pwdConfirm" class="sr-form-input" placeholder="Confirm new password">
+                    <button type="button" class="sr-eye-btn" onclick="srToggleEye('pwdConfirm',this)"><i class="fas fa-eye"></i></button>
+                </div>
+            </div>
+            <div id="pwdFeedback" class="sr-pwd-feedback" style="display:none;"></div>
+        </div>
+        <div class="sr-pwd-footer">
+            <button class="sr-btn-cancel" onclick="srCloseChangePassword()">Cancel</button>
+            <button class="sr-btn-submit" onclick="srSubmitChangePassword()">Change Password</button>
+        </div>
+    </div>
+
+    <!-- Hidden user data -->
+    <div id="lobbyUserData"
+         th:data-user-name="${user.displayName}"
+         th:data-teacher-name="${user.teacherName}"
+         style="display:none;"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script>
+        // ===== User data =====
+        const lobbyEl  = document.getElementById('lobbyUserData');
+        const USER_NAME = lobbyEl ? lobbyEl.dataset.userName : '';
+        const USER_TEACHER_NAME = lobbyEl ? (lobbyEl.dataset.teacherName || '') : '';
+
+        function buildInitials(n) {
+            if (!n) return '?';
+            const p = n.trim().split(/\s+/);
+            return p.length >= 2 ? (p[0][0] + p[p.length - 1][0]).toUpperCase() : n.substring(0, 2).toUpperCase();
+        }
+
+        // ===== State =====
+        let isSettingsOpen = false;
+        let isThemesOpen   = false;
+        let liveMeetingCode = null;
+        let pollTimer       = null;
+        let stompClient     = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('userInitials').textContent = buildInitials(USER_NAME);
+
+            // Restore preferences
+            const autoJoin = localStorage.getItem('sr_autoJoin') === 'true';
+            document.getElementById('autoJoinToggle').checked = autoJoin;
+            srApplyTheme(localStorage.getItem('sr_theme') || 'matte-black', true);
+
+            // Close dropdowns on outside click
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.sr-settings-anchor')) { closeSettings(); closeThemesPanel(); }
+            });
+
+            // Connect WebSocket for live meeting notifications
+            connectLobbyWebSocket();
+
+            // Start polling for live meetings
+            pollLiveMeetings();
+            pollTimer = setInterval(pollLiveMeetings, 5000);
+        });
+
+        // ===== WebSocket (lobby channel) =====
+        function connectLobbyWebSocket() {
+            try {
+                const socket = new SockJS('/ws');
+                stompClient = Stomp.over(socket);
+                stompClient.debug = null;
+                stompClient.connect({}, () => {
+                    setStatus(true);
+                    // Subscribe to global meeting-live notifications
+                    stompClient.subscribe('/topic/meeting/live', msg => {
+                        const data = JSON.parse(msg.body);
+                        if (data && data.meetingCode) {
+                            // Only respond if it's our teacher's meeting
+                            if (!USER_TEACHER_NAME || !data.teacherName ||
+                                    data.teacherName === USER_TEACHER_NAME) {
+                                handleLiveMeetingNotification(data.meetingCode, data.title);
+                            }
+                        }
+                    });
+                }, () => {
+                    setStatus(false);
+                    setTimeout(connectLobbyWebSocket, 3000);
+                });
+            } catch(e) {}
+        }
+
+        function setStatus(online) {
+            const dot  = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            if (dot)  dot.classList.toggle('online', online);
+            if (text) { text.textContent = online ? 'Online' : 'Offline'; text.style.color = online ? '#22c55e' : '#ef4444'; }
+        }
+
+        // ===== Live meeting polling =====
+        function pollLiveMeetings() {
+            fetch('/api/student/live-meetings')
+                .then(r => r.json())
+                .then(list => {
+                    if (list && list.length > 0) {
+                        handleLiveMeetingNotification(list[0].meetingCode, list[0].title);
+                    } else {
+                        hideLiveBanner();
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function handleLiveMeetingNotification(code, title) {
+            liveMeetingCode = code;
+            const autoJoin = localStorage.getItem('sr_autoJoin') === 'true';
+            if (autoJoin) {
+                clearInterval(pollTimer);
+                window.location.href = '/meeting/room/' + code;
+            } else {
+                showLiveBanner(title || 'Meeting is live!');
+            }
+        }
+
+        function showLiveBanner(title) {
+            document.getElementById('waitingCard').style.display = 'none';
+            const banner = document.getElementById('liveBanner');
+            document.getElementById('liveBannerText').textContent = title + ' — Ready to join!';
+            banner.style.display = 'flex';
+        }
+
+        function hideLiveBanner() {
+            liveMeetingCode = null;
+            document.getElementById('liveBanner').style.display = 'none';
+            document.getElementById('waitingCard').style.display = '';
+        }
+
+        function joinLiveMeeting() {
+            if (liveMeetingCode) {
+                clearInterval(pollTimer);
+                window.location.href = '/meeting/room/' + liveMeetingCode;
+            }
+        }
+
+        // ===== Settings =====
+        function srToggleSettings(e) {
+            if (e) e.stopPropagation();
+            isSettingsOpen = !isSettingsOpen;
+            document.getElementById('srSettingsDropdown').classList.toggle('open', isSettingsOpen);
+        }
+
+        function closeSettings() {
+            isSettingsOpen = false;
+            const d = document.getElementById('srSettingsDropdown');
+            if (d) d.classList.remove('open');
+        }
+
+        function srAutoJoinChanged(cb) {
+            localStorage.setItem('sr_autoJoin', cb.checked);
+        }
+
+        // ===== Themes =====
+        function srOpenThemes(e) {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            closeSettings();
+            isThemesOpen = !isThemesOpen;
+            document.getElementById('srThemesPanel').classList.toggle('open', isThemesOpen);
+        }
+
+        function closeThemesPanel() {
+            isThemesOpen = false;
+            const p = document.getElementById('srThemesPanel');
+            if (p) p.classList.remove('open');
+        }
+
+        function srApplyTheme(theme, silent) {
+            document.body.setAttribute('data-theme', theme);
+            if (!silent) localStorage.setItem('sr_theme', theme);
+            document.querySelectorAll('.sr-theme-item').forEach(btn => btn.classList.toggle('active', btn.dataset.theme === theme));
+            if (!silent) closeThemesPanel();
+        }
+
+        // ===== Recordings =====
+        function srOpenRecordings(e) {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            closeSettings();
+            document.getElementById('srRecordingsOverlay').classList.add('active');
+            document.getElementById('srRecordingsModal').classList.add('open');
+            srLoadRecordings();
+        }
+
+        function srCloseRecordings() {
+            document.getElementById('srRecordingsOverlay').classList.remove('active');
+            document.getElementById('srRecordingsModal').classList.remove('open');
+        }
+
+        function srLoadRecordings() {
+            fetch('/api/user/recordings')
+                .then(r => r.json())
+                .then(data => {
+                    const list  = document.getElementById('srRecordingsList');
+                    const empty = document.getElementById('srRecordingsEmpty');
+                    list.querySelectorAll('.sr-rec-item').forEach(el => el.remove());
+                    if (!data || data.length === 0) { if (empty) empty.style.display = ''; return; }
+                    if (empty) empty.style.display = 'none';
+                    data.forEach(rec => {
+                        const item = document.createElement('div');
+                        item.className = 'sr-rec-item';
+                        item.innerHTML = `
+                            <div class="sr-rec-item-info">
+                                <div class="sr-rec-item-name"><i class="fas fa-file-video" style="color:#38bdf8;margin-right:8px;"></i>${escHtml(rec.fileName)}</div>
+                                <div class="sr-rec-item-meta">${escHtml(rec.createdAt)} · ${escHtml(rec.meetingTitle)}</div>
+                            </div>
+                            <div class="sr-rec-item-btns">
+                                <a href="/api/meeting/recording/${rec.id}/play" target="_blank" class="sr-rec-item-btn sr-rec-item-play"><i class="fas fa-play"></i> Play</a>
+                                <a href="/api/meeting/recording/${rec.id}/download" class="sr-rec-item-btn sr-rec-item-dl"><i class="fas fa-download"></i> Download</a>
+                                <button class="sr-rec-item-btn sr-rec-item-del" onclick="srDeleteRecording(${rec.id}, this)"><i class="fas fa-trash"></i> Delete</button>
+                            </div>`;
+                        list.appendChild(item);
+                    });
+                }).catch(() => {});
+        }
+
+        function srDeleteRecording(id, btn) {
+            if (!confirm('Delete this recording?')) return;
+            fetch(`/api/user/recordings/${id}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(d => { if (d.success) { btn.closest('.sr-rec-item').remove(); } })
+                .catch(() => {});
+        }
+
+        function srSaveAllRecordings() {
+            document.querySelectorAll('#srRecordingsList .sr-rec-item-dl').forEach(a => {
+                const link = document.createElement('a'); link.href = a.href; link.download = ''; link.click();
+            });
+        }
+
+        function srClearAllRecordings() {
+            if (!confirm('Delete ALL recordings?')) return;
+            [...document.querySelectorAll('#srRecordingsList .sr-rec-item-del')].forEach(btn =>
+                srDeleteRecording(parseInt(btn.getAttribute('onclick').match(/\d+/)[0]), btn));
+        }
+
+        // ===== Change Password =====
+        function srOpenChangePassword(e) {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            closeSettings();
+            ['pwdCurrent','pwdNew','pwdConfirm'].forEach(id => { document.getElementById(id).value = ''; });
+            const fb = document.getElementById('pwdFeedback');
+            fb.style.display = 'none'; fb.className = 'sr-pwd-feedback';
+            document.getElementById('srPasswordOverlay').classList.add('active');
+            document.getElementById('srPasswordModal').classList.add('open');
+        }
+
+        function srCloseChangePassword() {
+            document.getElementById('srPasswordOverlay').classList.remove('active');
+            document.getElementById('srPasswordModal').classList.remove('open');
+        }
+
+        function srToggleEye(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const icon  = btn.querySelector('i');
+            input.type  = input.type === 'password' ? 'text' : 'password';
+            icon.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+        }
+
+        function srSubmitChangePassword() {
+            const current = document.getElementById('pwdCurrent').value.trim();
+            const newPwd  = document.getElementById('pwdNew').value.trim();
+            const confirm = document.getElementById('pwdConfirm').value.trim();
+            const fb      = document.getElementById('pwdFeedback');
+            const btn     = document.querySelector('.sr-btn-submit');
+
+            const showFb = (msg, err) => { fb.textContent = msg; fb.className = 'sr-pwd-feedback ' + (err ? 'error' : 'success'); fb.style.display = 'block'; };
+
+            if (!current)          { showFb('Current password is required', true); return; }
+            if (newPwd.length < 6) { showFb('New password must be at least 6 characters', true); return; }
+            if (newPwd !== confirm) { showFb('Passwords do not match', true); return; }
+
+            btn.disabled = true; btn.textContent = 'Changing...';
+            fetch('/api/user/change-password', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currentPassword: current, newPassword: newPwd, confirmPassword: confirm })
+            }).then(r => r.json()).then(d => {
+                btn.disabled = false; btn.textContent = 'Change Password';
+                if (d.success) { showFb('Password changed successfully!', false); setTimeout(srCloseChangePassword, 1800); }
+                else showFb(d.message || 'Failed to change password', true);
+            }).catch(() => { btn.disabled = false; btn.textContent = 'Change Password'; showFb('Network error. Please try again.', true); });
+        }
+
+        function escHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+    </script>
+</body>
+</html>
+

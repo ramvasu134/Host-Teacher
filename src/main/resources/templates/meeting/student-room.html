@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="'Meeting: ' + ${meeting.title}">Student Meeting Room</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/student-room.css}" rel="stylesheet">
+</head>
+<body>
+
+    <!-- ===== TOP HEADER BAR ===== -->
+    <header class="sr-header">
+        <div class="sr-header-left">
+            <span class="sr-meeting-title" th:text="${meeting.title}">Meeting Title</span>
+        </div>
+        <div class="sr-header-right">
+            <!-- User badge with initials + connection status -->
+            <div class="sr-user-badge">
+                <span class="sr-user-initials" id="userInitials">VK</span>
+                <div class="sr-status">
+                    <span class="sr-status-dot" id="statusDot"></span>
+                    <span class="sr-status-text" id="statusText">Offline</span>
+                </div>
+            </div>
+            <!-- Chat toggle -->
+            <button class="sr-icon-btn" id="btnChatToggle" onclick="srToggleChat()" title="Chat">
+                <i class="fas fa-comments"></i>
+            </button>
+            <!-- Settings toggle — dropdown anchor -->
+            <div class="sr-settings-anchor">
+                <button class="sr-icon-btn" id="btnSettingsToggle" onclick="srToggleSettings(event)" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <!-- Settings dropdown -->
+                <div class="sr-settings-dropdown" id="srSettingsDropdown">
+                    <a href="#" class="sr-dd-item" onclick="srOpenRecordings(event)">
+                        <i class="fas fa-circle-play"></i>
+                        <span>Recordings</span>
+                    </a>
+                    <a href="#" class="sr-dd-item" onclick="srOpenChangePassword(event)">
+                        <i class="fas fa-key"></i>
+                        <span>Change Password</span>
+                    </a>
+                    <div class="sr-dd-item sr-dd-toggle-item">
+                        <div class="sr-dd-item-left">
+                            <i class="fas fa-video"></i>
+                            <span>Auto Join</span>
+                        </div>
+                        <label class="sr-toggle">
+                            <input type="checkbox" id="autoJoinToggle" onchange="srAutoJoinChanged(this)">
+                            <span class="sr-toggle-slider"></span>
+                        </label>
+                    </div>
+                    <a href="#" class="sr-dd-item" onclick="srOpenThemes(event)">
+                        <i class="fas fa-palette"></i>
+                        <span>Themes</span>
+                    </a>
+                    <div class="sr-dd-divider"></div>
+                    <form th:action="@{/logout}" method="post" style="margin:0">
+                        <button type="submit" class="sr-dd-item sr-dd-logout">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Themes Panel (secondary dropdown) -->
+                <div class="sr-themes-panel" id="srThemesPanel">
+                    <button class="sr-theme-item" data-theme="light" onclick="srApplyTheme('light')">
+                        <span class="sr-theme-sel" id="tsel-light"></span>
+                        <span class="sr-theme-emoji">☀️</span>
+                        <span>Light</span>
+                    </button>
+                    <button class="sr-theme-item" data-theme="dark" onclick="srApplyTheme('dark')">
+                        <span class="sr-theme-sel" id="tsel-dark"></span>
+                        <span class="sr-theme-emoji">🌙</span>
+                        <span>Dark</span>
+                    </button>
+                    <button class="sr-theme-item" data-theme="ocean" onclick="srApplyTheme('ocean')">
+                        <span class="sr-theme-sel" id="tsel-ocean"></span>
+                        <span class="sr-theme-emoji">🌊</span>
+                        <span>Ocean</span>
+                    </button>
+                    <button class="sr-theme-item" data-theme="forest" onclick="srApplyTheme('forest')">
+                        <span class="sr-theme-sel" id="tsel-forest"></span>
+                        <span class="sr-theme-emoji">🌲</span>
+                        <span>Forest</span>
+                    </button>
+                    <button class="sr-theme-item" data-theme="matte-black" onclick="srApplyTheme('matte-black')">
+                        <span class="sr-theme-sel" id="tsel-matte-black"></span>
+                        <span class="sr-theme-emoji">🖤</span>
+                        <span>Matte Black</span>
+                    </button>
+                    <button class="sr-theme-item" data-theme="purple" onclick="srApplyTheme('purple')">
+                        <span class="sr-theme-sel" id="tsel-purple"></span>
+                        <span class="sr-theme-emoji">💜</span>
+                        <span>Purple</span>
+                    </button>
+                    <button class="sr-theme-item sr-theme-item-locked" data-theme="dull-white" title="Coming soon">
+                        <span class="sr-theme-sel" id="tsel-dull-white"></span>
+                        <span class="sr-theme-emoji">🤍</span>
+                        <span>Dull White</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== RAINBOW GRADIENT BAR ===== -->
+    <div class="sr-gradient-bar"></div>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <div class="sr-main">
+        <!-- Teacher Logo -->
+        <div class="sr-logo-container">
+            <div class="sr-logo-ring"></div>
+            <div class="sr-logo-inner">
+                <!-- Show teacher's custom logo if available, otherwise default logo -->
+                <img th:if="${teacher.teacherLogo != null and !teacher.teacherLogo.isEmpty()}"
+                     th:src="${teacher.teacherLogo}"
+                     alt="Teacher Logo"
+                     class="sr-teacher-logo-img"/>
+                <img th:unless="${teacher.teacherLogo != null and !teacher.teacherLogo.isEmpty()}"
+                     th:src="@{/images/default-teacher-logo.svg}"
+                     alt="Default Logo"
+                     class="sr-teacher-logo-img"/>
+            </div>
+        </div>
+
+        <!-- Host video area (hidden until teacher joins) -->
+        <div class="sr-video-area" id="hostVideoArea">
+            <video id="hostVideo" autoplay playsinline></video>
+        </div>
+
+        <!-- Waiting message -->
+        <div class="sr-waiting-card" id="waitingCard">
+            <span class="sr-waiting-text">Wait For Teacher To Join</span>
+        </div>
+    </div>
+
+    <!-- ===== BOTTOM CONTROL BAR ===== -->
+    <footer class="sr-controls">
+        <button class="sr-control-btn" id="btnSpeaker" onclick="srToggleSpeaker()" title="Speaker">
+            <i class="fas fa-volume-up"></i>
+        </button>
+        <div></div>
+        <button class="sr-control-btn sr-control-btn-green" id="btnMic" onclick="srToggleMic()" title="Microphone">
+            <i class="fas fa-microphone"></i>
+        </button>
+    </footer>
+
+    <!-- ===== CHAT DIALOG (centered overlay) ===== -->
+    <div class="sr-overlay" id="srOverlay" onclick="srCloseAll()"></div>
+
+    <div class="sr-chat-dialog" id="srChatDialog">
+        <div class="sr-chat-dialog-header">
+            <div class="sr-chat-dialog-title">
+                <i class="fas fa-comments"></i>
+                <span>Chat</span>
+            </div>
+            <button class="sr-dialog-close" onclick="srToggleChat()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="sr-chat-dialog-body" id="srChatMessages">
+            <!-- existing messages from server -->
+            <div th:if="${chatMessages == null or #lists.isEmpty(chatMessages)}" class="sr-chat-empty">
+                No messages yet. Join a meeting to start chatting!
+            </div>
+            <div th:each="msg : ${chatMessages}" class="sr-chat-msg">
+                <div class="sr-chat-msg-header">
+                    <span class="sr-chat-sender" th:text="${msg.sender.displayName}">Sender</span>
+                    <span class="sr-chat-time" th:text="${#temporals.format(msg.sentAt, 'HH:mm')}">12:00</span>
+                </div>
+                <div class="sr-chat-msg-body" th:text="${msg.message}">Message</div>
+            </div>
+        </div>
+        <div class="sr-chat-dialog-footer">
+            <input type="text" id="srChatInput" class="sr-chat-input" placeholder="Type a message..."
+                   onkeydown="if(event.key==='Enter')srSendChat()">
+            <button class="sr-chat-send-btn" onclick="srSendChat()">Send</button>
+        </div>
+    </div>
+
+    <!-- ===== RECORDINGS MODAL ===== -->
+    <div class="sr-modal-overlay" id="srRecordingsOverlay" onclick="srCloseRecordings()"></div>
+    <div class="sr-recordings-modal" id="srRecordingsModal">
+        <div class="sr-rmodal-header">
+            <div class="sr-rmodal-title">
+                <i class="fas fa-circle-dot" style="color:#ef4444;"></i>
+                <span>Recordings</span>
+            </div>
+            <button class="sr-dialog-close" onclick="srCloseRecordings()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="sr-rmodal-body">
+            <div class="sr-rec-info-bar">
+                <div class="sr-rec-info-text">
+                    <i class="fas fa-circle-info" style="color:#60a5fa; font-size:15px;"></i>
+                    <span>Your recordings will delete after 5 days. Please delete the recording if not required to save space.</span>
+                </div>
+                <div class="sr-rec-actions">
+                    <button class="sr-rec-btn sr-rec-save" onclick="srSaveAllRecordings()">
+                        <i class="fas fa-download"></i> Save All
+                    </button>
+                    <button class="sr-rec-btn sr-rec-clear" onclick="srClearAllRecordings()">
+                        <i class="fas fa-trash"></i> Clear All
+                    </button>
+                </div>
+            </div>
+            <div class="sr-rec-list" id="srRecordingsList">
+                <div class="sr-rec-empty" id="srRecordingsEmpty">
+                    No recordings yet. Start speaking when unmuted to create recordings.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CHANGE PASSWORD MODAL ===== -->
+    <div class="sr-modal-overlay" id="srPasswordOverlay" onclick="srCloseChangePassword()"></div>
+    <div class="sr-pwd-modal" id="srPasswordModal">
+        <div class="sr-pwd-header">
+            <span class="sr-pwd-title">Change Password</span>
+            <button class="sr-dialog-close" onclick="srCloseChangePassword()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="sr-pwd-body">
+            <div class="sr-form-group">
+                <label class="sr-form-label">Current Password</label>
+                <div class="sr-input-wrap">
+                    <input type="password" id="pwdCurrent" class="sr-form-input" placeholder="Enter current password">
+                    <button type="button" class="sr-eye-btn" onclick="srToggleEye('pwdCurrent',this)"><i class="fas fa-eye"></i></button>
+                </div>
+            </div>
+            <div class="sr-form-group">
+                <label class="sr-form-label">New Password</label>
+                <div class="sr-input-wrap">
+                    <input type="password" id="pwdNew" class="sr-form-input" placeholder="Enter new password (min 6 characters)">
+                    <button type="button" class="sr-eye-btn" onclick="srToggleEye('pwdNew',this)"><i class="fas fa-eye"></i></button>
+                </div>
+            </div>
+            <div class="sr-form-group">
+                <label class="sr-form-label">Confirm New Password</label>
+                <div class="sr-input-wrap">
+                    <input type="password" id="pwdConfirm" class="sr-form-input" placeholder="Confirm new password">
+                    <button type="button" class="sr-eye-btn" onclick="srToggleEye('pwdConfirm',this)"><i class="fas fa-eye"></i></button>
+                </div>
+            </div>
+            <div id="pwdFeedback" class="sr-pwd-feedback" style="display:none;"></div>
+        </div>
+        <div class="sr-pwd-footer">
+            <button class="sr-btn-cancel" onclick="srCloseChangePassword()">Cancel</button>
+            <button class="sr-btn-submit" onclick="srSubmitChangePassword()">Change Password</button>
+        </div>
+    </div>
+
+    <!-- Hidden data for JS -->
+    <div id="meetingData"
+         th:data-meeting-code="${meetingCode}"
+         th:data-user-id="${user.id}"
+         th:data-user-name="${user.displayName}"
+         style="display:none;"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script th:src="@{/js/student-room.js}"></script>
+</body>
+</html>
+

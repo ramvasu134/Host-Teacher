@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="'Meeting: ' + ${meeting.title}">Teacher Meeting Room</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/host-room.css}" rel="stylesheet">
+</head>
+<body>
+    <!-- Meeting Header -->
+    <header class="room-header">
+        <div class="header-left">
+            <div class="live-badge">
+                <span class="live-dot"></span>
+                <span>LIVE</span>
+            </div>
+            <h1 class="meeting-title" th:text="${meeting.title}">Meeting Title</h1>
+            <span class="meeting-code">
+                <i class="fas fa-hashtag"></i>
+                <span th:text="${meeting.meetingCode}">CODE</span>
+                <button class="copy-btn" onclick="copyMeetingCode()" title="Copy code">
+                    <i class="fas fa-copy"></i>
+                </button>
+            </span>
+        </div>
+        <div class="header-right">
+            <div class="participant-count" id="participantCount">
+                <i class="fas fa-users"></i>
+                <span th:text="${#lists.size(participants)}">0</span>
+            </div>
+            <div class="meeting-timer" id="meetingTimer">00:00:00</div>
+        </div>
+    </header>
+
+    <!-- Rainbow gradient bar -->
+    <div class="gradient-bar"></div>
+
+    <!-- Main Content Area -->
+    <div class="room-main">
+        <!-- Left Panel: Audio Visualization -->
+        <div class="audio-panel">
+            <div class="host-audio-area">
+                <div class="audio-visual-container">
+                    <div class="audio-ring" id="hostAudioRing"></div>
+                    <div class="host-avatar">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                </div>
+                <div class="host-info">
+                    <span class="host-name" th:text="${user.displayName} + ' (You)'">Teacher (You)</span>
+                    <span class="host-role">HOST</span>
+                </div>
+                <div class="mic-status" id="micStatus">
+                    <i class="fas fa-microphone"></i>
+                    <span>Microphone Active</span>
+                </div>
+            </div>
+
+            <!-- Students currently speaking -->
+            <div class="speaking-now" id="speakingNow" style="display:none;">
+                <h3><i class="fas fa-waveform"></i> Speaking Now</h3>
+                <div class="speaking-student" id="speakingStudent">
+                    <div class="student-audio-ring"></div>
+                    <div class="speaking-avatar"><i class="fas fa-user-graduate"></i></div>
+                    <span class="speaking-name">Student Name</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Participants List -->
+        <div class="participants-panel" id="participantsPanel">
+            <div class="panel-header">
+                <h3><i class="fas fa-users me-2"></i>Participants</h3>
+                <span class="participant-badge" th:text="${#lists.size(participants)}">0</span>
+            </div>
+            <div class="participants-list" id="participantsList">
+                <!-- Host -->
+                <div class="participant-item host">
+                    <div class="participant-avatar host-av">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                    <div class="participant-info">
+                        <span class="participant-name" th:text="${user.displayName}">Teacher</span>
+                        <span class="participant-badge-role">HOST</span>
+                    </div>
+                    <div class="participant-status">
+                        <i class="fas fa-microphone status-mic" id="hostMicIcon"></i>
+                    </div>
+                </div>
+
+                <!-- Students -->
+                <div th:each="p : ${participants}" th:if="${p.user.id != user.id}" class="participant-item student">
+                    <div class="participant-avatar">
+                        <i class="fas fa-user-graduate"></i>
+                    </div>
+                    <div class="participant-info">
+                        <span class="participant-name" th:text="${p.user.displayName}">Student</span>
+                        <span class="participant-status-text">
+                            <span th:if="${p.micEnabled}" class="status-unmuted">Speaking</span>
+                            <span th:unless="${p.micEnabled}" class="status-muted">Muted</span>
+                        </span>
+                    </div>
+                    <div class="participant-status">
+                        <i class="fas fa-microphone status-mic" th:classappend="${p.micEnabled} ? '' : '-slash muted'"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Panel (toggleable) -->
+        <div class="chat-panel" id="chatPanel" style="display:none;">
+            <div class="panel-header">
+                <h3><i class="fas fa-comments me-2"></i>Chat</h3>
+                <button class="panel-close" onclick="toggleChat()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div th:each="msg : ${chatMessages}" class="chat-msg">
+                    <div class="chat-msg-header">
+                        <span class="chat-sender" th:text="${msg.sender.displayName}">Sender</span>
+                        <span class="chat-time" th:text="${#temporals.format(msg.sentAt, 'HH:mm')}">12:00</span>
+                    </div>
+                    <div class="chat-msg-body" th:text="${msg.message}">Message</div>
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInput" placeholder="Type a message..." onkeypress="if(event.key==='Enter')sendChatMessage()">
+                <button onclick="sendChatMessage()" class="chat-send-btn"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Bar -->
+    <footer class="control-bar">
+        <div class="controls-left">
+            <span class="control-info" id="recordingStatus" style="display:none;">
+                <span class="rec-dot"></span>
+                <span>Recording</span>
+            </span>
+        </div>
+
+        <div class="controls-center">
+            <button class="control-btn" id="btnMic" onclick="toggleMic()" title="Toggle Microphone">
+                <i class="fas fa-microphone"></i>
+                <span>Mic</span>
+            </button>
+
+            <button class="control-btn" id="btnRecord" onclick="toggleRecording()" title="Start Recording" th:if="${meeting.recordingEnabled}">
+                <i class="fas fa-circle rec-icon"></i>
+                <span>Record</span>
+            </button>
+
+            <button class="control-btn" id="btnChat" onclick="toggleChat()" title="Chat" th:if="${meeting.chatEnabled}">
+                <i class="fas fa-comments"></i>
+                <span>Chat</span>
+            </button>
+
+            <button class="control-btn btn-end" onclick="endMeeting()" title="End Meeting">
+                <i class="fas fa-power-off"></i>
+                <span>End</span>
+            </button>
+        </div>
+
+        <div class="controls-right">
+            <button class="control-btn-mini" onclick="toggleSettings()" title="Settings">
+                <i class="fas fa-cog"></i>
+            </button>
+        </div>
+    </footer>
+
+    <!-- End Meeting Confirmation -->
+    <div class="modal-overlay" id="endMeetingOverlay" onclick="closeEndModal()"></div>
+    <div class="end-meeting-modal" id="endMeetingModal">
+        <div class="modal-icon danger">
+            <i class="fas fa-power-off"></i>
+        </div>
+        <h3>End Meeting?</h3>
+        <p>This will end the meeting for all participants. Student recordings will be saved.</p>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeEndModal()">Cancel</button>
+            <form th:action="@{/host/meetings/{id}/end(id=${meeting.id})}" method="post" style="display:inline">
+                <button type="submit" class="btn btn-danger">End Meeting</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Hidden data attributes -->
+    <div id="meetingData"
+         th:data-meeting-code="${meetingCode}"
+         th:data-meeting-id="${meeting.id}"
+         th:data-user-id="${user.id}"
+         th:data-user-name="${user.displayName}"
+         th:data-is-host="true"
+         th:data-recording-enabled="${meeting.recordingEnabled}"
+         style="display:none;"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script th:src="@{/js/host-room.js}"></script>
+</body>
+</html>

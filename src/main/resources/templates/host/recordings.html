@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recordings - AiR Voices</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/host-dashboard.css}" rel="stylesheet">
+</head>
+<body class="theme-dark">
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo"><i class="fas fa-feather-alt"></i></div>
+            <span class="brand-text">AiR<span class="brand-highlight">Voices</span></span>
+        </div>
+        <ul class="sidebar-nav">
+            <li class="nav-item"><a th:href="@{/host/dashboard}"><i class="fas fa-home"></i><span>Dashboard</span></a></li>
+            <li class="nav-item"><a th:href="@{/host/meetings}"><i class="fas fa-microphone-alt"></i><span>Meetings</span></a></li>
+            <li class="nav-item"><a th:href="@{/host/students}"><i class="fas fa-user-graduate"></i><span>Students</span></a></li>
+            <li class="nav-item active"><a th:href="@{/host/recordings}"><i class="fas fa-record-vinyl"></i><span>Recordings</span></a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <!-- Show IPL logo if available, otherwise initials -->
+                <div class="user-avatar" th:if="${user.teacherLogo == null or #strings.isEmpty(user.teacherLogo)}">
+                    <span th:text="${#strings.substring(user.displayName, 0, 2).toUpperCase()}">TH</span>
+                </div>
+                <div class="user-avatar-img" th:if="${user.teacherLogo != null and !#strings.isEmpty(user.teacherLogo)}">
+                    <img th:src="${user.teacherLogo}" alt="Profile" class="profile-logo"/>
+                </div>
+                <div class="user-details">
+                    <span class="user-name" th:text="${user.displayName}">Teacher</span>
+                    <span class="user-role">TEACHER</span>
+                </div>
+            </div>
+            <div class="sidebar-actions">
+                <button class="btn-settings" onclick="toggleSettingsDropdown(event)" title="Settings"><i class="fas fa-cog"></i></button>
+                <form th:action="@{/logout}" method="post" style="display:inline;">
+                    <button type="submit" class="btn-logout" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+                </form>
+            </div>
+            <div class="settings-dropdown" id="settingsDropdown">
+                <a href="#" class="dropdown-item" onclick="openChangePassword(event)"><i class="fas fa-key"></i><span>Change Password</span></a>
+                <a href="#" class="dropdown-item" onclick="openThemes(event)"><i class="fas fa-palette"></i><span>Themes</span></a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="top-header">
+            <button class="sidebar-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+            <div class="header-title">
+                <h2><i class="fas fa-record-vinyl me-3"></i>Recordings & Transcripts</h2>
+                <p class="subtitle">Audio clips and transcripts in one view</p>
+            </div>
+        </header>
+
+        <!-- View Controls -->
+        <div class="view-controls">
+            <div class="view-toggle-group">
+                <button class="view-toggle-btn active" data-view="both" id="btnBoth">
+                    <i class="fas fa-columns"></i> Both
+                </button>
+                <button class="view-toggle-btn" data-view="recordings" id="btnRecordings">
+                    <i class="fas fa-record-vinyl"></i> Recordings Only
+                </button>
+                <button class="view-toggle-btn" data-view="transcripts" id="btnTranscripts">
+                    <i class="fas fa-file-alt"></i> Transcripts Only
+                </button>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div th:if="${#maps.isEmpty(studentRecordingsMap)}" class="card-panel">
+            <div class="empty-state-large">
+                <i class="fas fa-record-vinyl"></i>
+                <h4>No Recordings Yet</h4>
+                <p>Student recordings will appear here when they speak in meetings</p>
+            </div>
+        </div>
+
+        <!-- Student Sections with 2-Column Table -->
+        <div th:each="entry : ${studentRecordingsMap}" class="card-panel student-section">
+            <div class="panel-header student-header">
+                <div class="student-info">
+                    <div class="student-avatar" th:text="${#strings.substring(entry.key.displayName, 0, 2).toUpperCase()}">ST</div>
+                    <div>
+                        <h3 th:text="${entry.key.displayName}">Student Name</h3>
+                        <span class="clips-count" th:text="${#lists.size(entry.value)} + ' clips'">0 clips</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2-Column Table: Recording | Transcript -->
+            <div class="recordings-table-wrapper">
+                <table class="recordings-table" id="recordingsTable">
+                    <thead>
+                        <tr>
+                            <th class="col-recording"><i class="fas fa-record-vinyl me-2"></i>Recording</th>
+                            <th class="col-transcript"><i class="fas fa-file-alt me-2"></i>Transcript</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="rec, iterStat : ${entry.value}" class="recording-row">
+                            <!-- Recording Column -->
+                            <td class="col-recording">
+                                <div class="recording-cell">
+                                    <div class="recording-icon-sm">
+                                        <i class="fas fa-waveform-lines"></i>
+                                        <span class="clip-num" th:text="'#' + ${iterStat.count}">1</span>
+                                    </div>
+                                    <div class="recording-details">
+                                        <h4 class="rec-name" th:text="'Clip ' + ${iterStat.count}">Recording</h4>
+                                        <div class="rec-meta">
+                                            <span th:text="${#temporals.format(rec.createdAt, 'MMM dd, HH:mm')}">Date</span>
+                                            <span th:if="${rec.durationSeconds > 0}" th:text="' • ' + ${rec.durationSeconds} + 's'">Duration</span>
+                                        </div>
+                                    </div>
+                                    <div class="rec-actions">
+                                        <a th:href="@{/api/meeting/recording/{id}/play(id=${rec.id})}" target="_blank" class="rec-btn play" title="Play">
+                                            <i class="fas fa-play"></i>
+                                        </a>
+                                        <a th:href="@{/api/meeting/recording/{id}/download(id=${rec.id})}" class="rec-btn download" title="Download">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                        <button class="rec-btn delete" title="Delete" th:onclick="'deleteRecording(' + ${rec.id} + ')'">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Transcript Column -->
+                            <td class="col-transcript">
+                                <div class="transcript-cell">
+                                    <div th:if="${recordingTranscripts.containsKey(rec.id) and #lists.size(recordingTranscripts.get(rec.id)) > 0}">
+                                        <div th:each="transcript : ${recordingTranscripts.get(rec.id)}">
+                                            <p class="transcript-text-cell" th:text="${transcript.content}">Transcript content...</p>
+                                        </div>
+                                        <div class="transcript-actions">
+                                            <button class="rec-btn copy" title="Copy" th:onclick="'copyTranscriptText(this)'">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                            <button class="rec-btn expand" title="Expand" th:onclick="'showTranscript(' + ${rec.id} + ')'">
+                                                <i class="fas fa-expand"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div th:unless="${recordingTranscripts.containsKey(rec.id) and #lists.size(recordingTranscripts.get(rec.id)) > 0}" class="no-transcript-cell">
+                                        <i class="fas fa-file-circle-xmark"></i>
+                                        <span>No transcript available</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Transcript Modal -->
+    <div class="modal-overlay" id="transcriptModalOverlay" onclick="closeTranscriptModal()"></div>
+    <div class="transcript-modal" id="transcriptModal">
+        <div class="modal-header">
+            <h3><i class="fas fa-file-alt me-2"></i>Full Transcript</h3>
+            <button class="modal-close" onclick="closeTranscriptModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="transcriptContent" class="transcript-content">
+                <p>Loading transcript...</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeTranscriptModal()">Close</button>
+            <button class="btn btn-primary-gradient" onclick="copyTranscript()"><i class="fas fa-copy me-1"></i>Copy All</button>
+        </div>
+    </div>
+
+    <!-- Password Modal -->
+    <div class="modal-overlay" id="passwordModalOverlay" onclick="closeChangePassword()"></div>
+    <div class="password-modal" id="passwordModal">
+        <div class="modal-header">
+            <h3><i class="fas fa-key me-2"></i>Change Password</h3>
+            <button class="modal-close" onclick="closeChangePassword()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group"><label>Current Password</label><div class="input-wrapper"><input type="password" id="currentPassword" placeholder="Enter current password"><button type="button" class="eye-toggle" onclick="togglePasswordVisibility('currentPassword', this)"><i class="fas fa-eye"></i></button></div></div>
+            <div class="form-group"><label>New Password</label><div class="input-wrapper"><input type="password" id="newPassword" placeholder="Enter new password"><button type="button" class="eye-toggle" onclick="togglePasswordVisibility('newPassword', this)"><i class="fas fa-eye"></i></button></div></div>
+            <div class="form-group"><label>Confirm New Password</label><div class="input-wrapper"><input type="password" id="confirmPassword" placeholder="Confirm new password"><button type="button" class="eye-toggle" onclick="togglePasswordVisibility('confirmPassword', this)"><i class="fas fa-eye"></i></button></div></div>
+            <div id="passwordFeedback" class="feedback-message"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeChangePassword()">Cancel</button>
+            <button class="btn btn-primary-gradient" onclick="submitPasswordChange()">Change Password</button>
+        </div>
+    </div>
+
+    <!-- Themes Modal -->
+    <div class="modal-overlay" id="themesModalOverlay" onclick="closeThemes()"></div>
+    <div class="themes-modal" id="themesModal">
+        <div class="modal-header">
+            <h3><i class="fas fa-palette me-2"></i>Choose Theme</h3>
+            <button class="modal-close" onclick="closeThemes()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="themes-grid">
+                <button class="theme-option" data-theme="dark" onclick="applyTheme('dark')"><span class="theme-check"></span><span class="theme-emoji">🌙</span><span>Dark</span></button>
+                <button class="theme-option" data-theme="light" onclick="applyTheme('light')"><span class="theme-check"></span><span class="theme-emoji">☀️</span><span>Light</span></button>
+                <button class="theme-option" data-theme="ocean" onclick="applyTheme('ocean')"><span class="theme-check"></span><span class="theme-emoji">🌊</span><span>Ocean</span></button>
+                <button class="theme-option" data-theme="forest" onclick="applyTheme('forest')"><span class="theme-check"></span><span class="theme-emoji">🌲</span><span>Forest</span></button>
+                <button class="theme-option" data-theme="purple" onclick="applyTheme('purple')"><span class="theme-check"></span><span class="theme-emoji">💜</span><span>Purple</span></button>
+                <button class="theme-option" data-theme="matte-black" onclick="applyTheme('matte-black')"><span class="theme-check"></span><span class="theme-emoji">🖤</span><span>Matte Black</span></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/host-dashboard.js}"></script>
+    <script>
+        let currentTranscriptText = '';
+        let currentView = 'both';
+
+        // Initialize toggle buttons on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing toggle buttons...');
+
+            const btnBoth = document.getElementById('btnBoth');
+            const btnRecordings = document.getElementById('btnRecordings');
+            const btnTranscripts = document.getElementById('btnTranscripts');
+
+            if (btnBoth) {
+                btnBoth.onclick = function(e) {
+                    e.preventDefault();
+                    setView('both');
+                };
+            }
+            if (btnRecordings) {
+                btnRecordings.onclick = function(e) {
+                    e.preventDefault();
+                    setView('recordings');
+                };
+            }
+            if (btnTranscripts) {
+                btnTranscripts.onclick = function(e) {
+                    e.preventDefault();
+                    setView('transcripts');
+                };
+            }
+
+            // Set initial view
+            setView('both');
+            console.log('Toggle buttons initialized successfully');
+        });
+
+        function setView(view) {
+            console.log('setView called with: ' + view);
+            currentView = view;
+
+            // Get all toggle buttons
+            const btnBoth = document.getElementById('btnBoth');
+            const btnRecordings = document.getElementById('btnRecordings');
+            const btnTranscripts = document.getElementById('btnTranscripts');
+            const mainContent = document.querySelector('.main-content');
+
+            // Remove active class from all buttons
+            if (btnBoth) btnBoth.className = 'view-toggle-btn';
+            if (btnRecordings) btnRecordings.className = 'view-toggle-btn';
+            if (btnTranscripts) btnTranscripts.className = 'view-toggle-btn';
+
+            // Add active class to selected button
+            if (view === 'both' && btnBoth) {
+                btnBoth.className = 'view-toggle-btn active';
+            } else if (view === 'recordings' && btnRecordings) {
+                btnRecordings.className = 'view-toggle-btn active';
+            } else if (view === 'transcripts' && btnTranscripts) {
+                btnTranscripts.className = 'view-toggle-btn active';
+            }
+
+            // Apply view mode class to main content
+            if (mainContent) {
+                mainContent.classList.remove('view-recordings-only', 'view-transcripts-only');
+                if (view === 'recordings') {
+                    mainContent.classList.add('view-recordings-only');
+                } else if (view === 'transcripts') {
+                    mainContent.classList.add('view-transcripts-only');
+                }
+            }
+
+            console.log('View changed to: ' + view);
+        }
+
+        function deleteRecording(id) {
+            if (confirm('Are you sure you want to delete this recording and its transcript?')) {
+                fetch('/api/meeting/recording/' + id, { method: 'DELETE' })
+                    .then(response => {
+                        if (response.ok) location.reload();
+                        else alert('Failed to delete recording');
+                    });
+            }
+        }
+
+        function showTranscript(recordingId) {
+            document.getElementById('transcriptModalOverlay').classList.add('show');
+            document.getElementById('transcriptModal').classList.add('show');
+            document.getElementById('transcriptContent').innerHTML = '<p>Loading...</p>';
+
+            fetch('/api/transcript/recording/' + recordingId)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        currentTranscriptText = data.map(t => t.content).join('\n\n');
+                        let html = data.map(t => `
+                            <div class="transcript-segment">
+                                <div class="transcript-meta">
+                                    <span class="speaker">${t.speakerName || 'Unknown'}</span>
+                                    <span class="time">${t.startTimeSeconds || 0}s - ${t.endTimeSeconds || 0}s</span>
+                                </div>
+                                <p class="transcript-text">${t.content}</p>
+                            </div>
+                        `).join('');
+                        document.getElementById('transcriptContent').innerHTML = html;
+                    } else {
+                        document.getElementById('transcriptContent').innerHTML = '<p class="no-transcript">No transcript available.</p>';
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('transcriptContent').innerHTML = '<p class="error">Error loading transcript</p>';
+                });
+        }
+
+        function closeTranscriptModal() {
+            document.getElementById('transcriptModalOverlay').classList.remove('show');
+            document.getElementById('transcriptModal').classList.remove('show');
+        }
+
+        function copyTranscript() {
+            if (currentTranscriptText) {
+                navigator.clipboard.writeText(currentTranscriptText).then(() => {
+                    alert('Transcript copied!');
+                });
+            }
+        }
+
+        function copyTranscriptText(btn) {
+            const cell = btn.closest('.transcript-cell');
+            const text = cell.querySelector('.transcript-text-cell')?.textContent || '';
+            if (text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    btn.innerHTML = '<i class="fas fa-check"></i>';
+                    setTimeout(() => btn.innerHTML = '<i class="fas fa-copy"></i>', 1500);
+                });
+            }
+        }
+    </script>
+
+    <style>
+        /* Profile Logo Styles */
+        .user-avatar-img {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .user-avatar-img .profile-logo {
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+
+        /* View Controls */
+        .view-controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+        .view-toggle-group {
+            display: flex;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 8px;
+            border-radius: 12px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+        .view-toggle-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: #94a3b8;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .view-toggle-btn:hover:not(.active) {
+            background: rgba(99, 102, 241, 0.15);
+            color: #c7d2fe;
+        }
+        .view-toggle-btn.active {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+            color: white !important;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+        .view-toggle-btn i { font-size: 14px; }
+
+        /* View mode classes for column visibility */
+        .view-recordings-only .col-transcript { display: none !important; }
+        .view-transcripts-only .col-recording { display: none !important; }
+
+        /* Student Section */
+        .student-section { margin-bottom: 24px; }
+        .student-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 0;
+        }
+        .student-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .student-avatar {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: 600; font-size: 16px;
+        }
+        .student-info h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
+        .clips-count { font-size: 13px; color: var(--text-muted); }
+
+        /* Recordings Table */
+        .recordings-table-wrapper {
+            overflow-x: auto;
+        }
+        .recordings-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .recordings-table thead th {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 14px 18px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .recordings-table thead th.col-recording {
+            width: 45%;
+            border-right: 1px solid var(--border-color);
+        }
+        .recordings-table thead th.col-transcript {
+            width: 55%;
+        }
+        .recordings-table tbody tr {
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s ease;
+        }
+        .recordings-table tbody tr:hover {
+            background: rgba(99, 102, 241, 0.05);
+        }
+        .recordings-table td {
+            padding: 16px 18px;
+            vertical-align: top;
+        }
+        .recordings-table td.col-recording {
+            border-right: 1px solid var(--border-color);
+        }
+
+        /* Recording Cell */
+        .recording-cell {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .recording-icon-sm {
+            width: 44px; height: 44px;
+            background: linear-gradient(135deg, #ef4444, #f87171);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .recording-icon-sm i { color: white; font-size: 16px; }
+        .clip-num {
+            position: absolute;
+            bottom: -4px; right: -4px;
+            background: #1e293b;
+            border: 2px solid var(--border-color);
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .recording-details { flex: 1; min-width: 0; }
+        .rec-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0 0 4px;
+            color: var(--text-primary);
+        }
+        .rec-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .rec-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .rec-btn {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            border: none;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            font-size: 12px;
+        }
+        .rec-btn.play { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+        .rec-btn.play:hover { box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4); }
+        .rec-btn.download { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+        .rec-btn.download:hover { background: rgba(59, 130, 246, 0.25); }
+        .rec-btn.delete { background: rgba(239, 68, 68, 0.1); color: #f87171; }
+        .rec-btn.delete:hover { background: rgba(239, 68, 68, 0.2); }
+        .rec-btn.copy { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
+        .rec-btn.copy:hover { background: rgba(99, 102, 241, 0.25); }
+        .rec-btn.expand { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .rec-btn.expand:hover { background: rgba(245, 158, 11, 0.25); }
+
+        /* Transcript Cell */
+        .transcript-cell {
+            position: relative;
+            min-height: 60px;
+        }
+        .transcript-text-cell {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-primary);
+            margin: 0;
+            max-height: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .transcript-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        .no-transcript-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-style: italic;
+        }
+        .no-transcript-cell i { font-size: 18px; opacity: 0.5; }
+
+        /* Empty State */
+        .empty-state-large {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state-large i { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+        .empty-state-large h4 { margin: 0 0 8px; color: var(--text-secondary); }
+        .empty-state-large p { margin: 0; font-size: 14px; }
+
+        /* Transcript Modal */
+        .transcript-modal {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            width: 90%; max-width: 600px; max-height: 80vh;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            z-index: 1001;
+            opacity: 0; visibility: hidden;
+            transition: all 0.3s ease;
+            display: flex; flex-direction: column;
+        }
+        .transcript-modal.show {
+            opacity: 1; visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        .transcript-modal .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .transcript-segment {
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+        }
+        .transcript-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .transcript-meta .speaker { font-weight: 600; color: var(--accent); font-size: 13px; }
+        .transcript-meta .time { font-size: 12px; color: var(--text-muted); }
+        .transcript-content .transcript-text { margin: 0; font-size: 14px; color: var(--text-primary); line-height: 1.6; }
+        .no-transcript, .error { text-align: center; color: var(--text-muted); padding: 40px; }
+    </style>
+</body>
+</html>

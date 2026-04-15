@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Meeting - AiR Voices</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/host-dashboard.css}" rel="stylesheet">
+</head>
+<body class="theme-dark">
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo"><i class="fas fa-feather-alt"></i></div>
+            <span class="brand-text">AiR<span class="brand-highlight">Voices</span></span>
+        </div>
+        <ul class="sidebar-nav">
+            <li class="nav-item"><a th:href="@{/host/dashboard}"><i class="fas fa-home"></i><span>Dashboard</span></a></li>
+            <li class="nav-item active"><a th:href="@{/host/meetings}"><i class="fas fa-microphone-alt"></i><span>Meetings</span></a></li>
+            <li class="nav-item"><a th:href="@{/host/students}"><i class="fas fa-user-graduate"></i><span>Students</span></a></li>
+            <li class="nav-item"><a th:href="@{/host/recordings}"><i class="fas fa-record-vinyl"></i><span>Recordings</span></a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <span th:text="${#strings.substring(user.displayName, 0, 2).toUpperCase()}">TH</span>
+                </div>
+                <div class="user-details">
+                    <span class="user-name" th:text="${user.displayName}">Teacher</span>
+                    <span class="user-role" th:text="${user.teacherName}">TEACHER</span>
+                </div>
+            </div>
+            <div class="sidebar-actions">
+                <form th:action="@{/logout}" method="post" style="display:inline;">
+                    <button type="submit" class="btn-logout" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="top-header">
+            <button class="sidebar-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+            <div class="header-title">
+                <h2><i class="fas fa-plus-circle me-3"></i>Create New Meeting</h2>
+                <p class="subtitle">Set up a new audio meeting session</p>
+            </div>
+        </header>
+
+        <div class="create-form-container">
+            <div class="card-panel">
+                <form th:action="@{/host/meetings/create}" th:object="${meetingRequest}" method="post">
+                    <!-- Meeting Title -->
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-heading me-2"></i>Meeting Title *
+                            </label>
+                            <input type="text" class="form-input" th:field="*{title}" required
+                                   placeholder="e.g., English Speaking Practice">
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-align-left me-2"></i>Description
+                            </label>
+                            <textarea class="form-input form-textarea" th:field="*{description}" rows="3"
+                                      placeholder="Optional: Add meeting description or agenda"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Schedule -->
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-calendar-alt me-2"></i>Schedule (Optional)
+                            </label>
+                            <input type="datetime-local" class="form-input" th:field="*{scheduledAt}">
+                            <p class="form-hint">Leave empty to start the meeting manually</p>
+                        </div>
+                    </div>
+
+                    <!-- Max Participants -->
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-users me-2"></i>Max Participants
+                            </label>
+                            <input type="number" class="form-input" th:field="*{maxParticipants}"
+                                   min="2" max="100" placeholder="50">
+                            <p class="form-hint">Maximum number of students who can join (2-100)</p>
+                        </div>
+                    </div>
+
+                    <!-- Meeting Features -->
+                    <div class="form-section">
+                        <label class="form-label">
+                            <i class="fas fa-cog me-2"></i>Meeting Features
+                        </label>
+                        <div class="feature-options">
+                            <label class="feature-option">
+                                <input type="checkbox" th:field="*{recordingEnabled}">
+                                <div class="feature-card">
+                                    <div class="feature-icon recording">
+                                        <i class="fas fa-record-vinyl"></i>
+                                    </div>
+                                    <div class="feature-info">
+                                        <span class="feature-name">Recording</span>
+                                        <span class="feature-desc">Record student audio clips</span>
+                                    </div>
+                                    <div class="feature-check">
+                                        <i class="fas fa-check"></i>
+                                    </div>
+                                </div>
+                            </label>
+
+                            <label class="feature-option">
+                                <input type="checkbox" th:field="*{chatEnabled}">
+                                <div class="feature-card">
+                                    <div class="feature-icon chat">
+                                        <i class="fas fa-comments"></i>
+                                    </div>
+                                    <div class="feature-info">
+                                        <span class="feature-name">Chat</span>
+                                        <span class="feature-desc">Enable text chat in meeting</span>
+                                    </div>
+                                    <div class="feature-check">
+                                        <i class="fas fa-check"></i>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Submit Buttons -->
+                    <div class="form-actions">
+                        <a th:href="@{/host/dashboard}" class="btn btn-secondary">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary-gradient">
+                            <i class="fas fa-check me-2"></i>Create Meeting
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tips Section -->
+            <div class="tips-section">
+                <h4><i class="fas fa-lightbulb me-2"></i>Meeting Tips</h4>
+                <ul class="tips-list">
+                    <li><i class="fas fa-check-circle"></i>Use a clear, descriptive title for your meeting</li>
+                    <li><i class="fas fa-check-circle"></i>Enable recording to save student audio clips</li>
+                    <li><i class="fas fa-check-circle"></i>Share the meeting code with your students</li>
+                    <li><i class="fas fa-check-circle"></i>Students can unmute to speak, which will be recorded</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/host-dashboard.js}"></script>
+
+    <style>
+        .create-form-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 28px;
+            max-width: 1100px;
+        }
+
+        .form-section {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+        .form-label i {
+            color: var(--accent-light);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 18px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-hint {
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Feature Options */
+        .feature-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .feature-option input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .feature-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            background: rgba(15, 23, 42, 0.4);
+            border: 2px solid var(--border-color);
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .feature-card:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .feature-option input:checked + .feature-card {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .feature-icon i {
+            color: white;
+            font-size: 20px;
+        }
+        .feature-icon.recording {
+            background: linear-gradient(135deg, #ef4444, #f87171);
+        }
+        .feature-icon.chat {
+            background: linear-gradient(135deg, #3b82f6, #60a5fa);
+        }
+
+        .feature-info {
+            flex: 1;
+        }
+        .feature-name {
+            display: block;
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text-primary);
+        }
+        .feature-desc {
+            display: block;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .feature-check {
+            width: 28px;
+            height: 28px;
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.2s ease;
+        }
+        .feature-check i {
+            color: white;
+            font-size: 12px;
+        }
+
+        .feature-option input:checked + .feature-card .feature-check {
+            opacity: 1;
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        /* Form Actions */
+        .form-actions {
+            display: flex;
+            gap: 14px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Tips Section */
+        .tips-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 18px;
+            padding: 24px;
+            height: fit-content;
+        }
+
+        .tips-section h4 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 18px;
+            color: var(--text-primary);
+        }
+        .tips-section h4 i {
+            color: #f59e0b;
+        }
+
+        .tips-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .tips-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .tips-list li:last-child {
+            border-bottom: none;
+        }
+        .tips-list li i {
+            color: var(--success);
+            font-size: 14px;
+            margin-top: 2px;
+        }
+
+        @media (max-width: 1024px) {
+            .create-form-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</body>
+</html>

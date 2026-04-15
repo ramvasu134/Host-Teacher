@@ -1,0 +1,80 @@
+# ============================================================
+#  Render.com Blueprint  –  Host Student Meeting (WebRTC App)
+#  Deploy with: https://dashboard.render.com/select-repo
+#  Docs: https://render.com/docs/blueprint-spec
+# ============================================================
+
+databases:
+  - name: meeting-db
+    databaseName: meeting_db
+    user: meeting_user
+    plan: free          # upgrade to starter/standard for production SLA
+    region: oregon      # change to match your web service region
+
+services:
+  - type: web
+    name: host-student-meeting
+    env: docker         # uses the Dockerfile at project root
+    plan: free          # upgrade to starter for always-on (no spin-down)
+    region: oregon
+    branch: main        # set to your deploy branch
+    healthCheckPath: /login
+
+    # ── Build & Deploy settings ──────────────────────────────────────────────
+    dockerfilePath: ./Dockerfile
+
+    # ── Auto-deploy on push ──────────────────────────────────────────────────
+    autoDeploy: true
+
+    # ── Environment Variables ────────────────────────────────────────────────
+    envVars:
+
+      # Spring profile → use prod properties
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+
+      # ── Database (injected from the Render PostgreSQL above) ─────────────
+      - key: DB_HOST
+        fromDatabase:
+          name: meeting-db
+          property: host
+
+      - key: DB_PORT
+        fromDatabase:
+          name: meeting-db
+          property: port
+
+      - key: DB_NAME
+        fromDatabase:
+          name: meeting-db
+          property: database
+
+      - key: DB_USER
+        fromDatabase:
+          name: meeting-db
+          property: user
+
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: meeting-db
+          property: password
+
+      # ── Security ─────────────────────────────────────────────────────────
+      # IMPORTANT: Override JWT_SECRET in the Render dashboard with a strong
+      # random value before going live.  Example (bash):
+      #   openssl rand -hex 64
+      - key: JWT_SECRET
+        generateValue: true   # Render auto-generates a random secret
+
+      # ── JVM tuning (optional override) ───────────────────────────────────
+      # Render free tier = 512 MB RAM; these defaults are already in the Dockerfile.
+      # Uncomment and change only if you upgrade the plan:
+      # - key: JAVA_OPTS
+      #   value: "-server -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC"
+
+      # ── Disk paths (ephemeral on free tier) ──────────────────────────────
+      - key: APP_UPLOAD_DIR
+        value: /app/uploads
+      - key: APP_RECORDING_DIR
+        value: /app/recordings
+

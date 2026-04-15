@@ -1,0 +1,120 @@
+package com.host.studen.controller.api;
+
+import com.host.studen.model.User;
+import com.host.studen.security.CustomUserDetails;
+import com.host.studen.service.RecordingService;
+import com.host.studen.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+
+@RestController
+@RequestMapping("/api/user")
+public class UserApiController {
+
+    @Autowired
+    private UserService userService;
+
+
+    @Autowired
+    private RecordingService recordingService;
+
+    /**
+     * Change password for the currently authenticated user.
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, Object>> changePassword(
+            @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String currentPassword = request.get("currentPassword");
+            String newPassword     = request.get("newPassword");
+            String confirmPassword = request.get("confirmPassword");
+
+            if (currentPassword == null || currentPassword.isBlank()) {
+                response.put("success", false);
+                response.put("message", "Current password is required");
+                return ResponseEntity.badRequest().body(response);
+            }
+            if (newPassword == null || newPassword.length() < 6) {
+                response.put("success", false);
+                response.put("message", "New password must be at least 6 characters");
+                return ResponseEntity.badRequest().body(response);
+            }
+            if (!newPassword.equals(confirmPassword)) {
+                response.put("success", false);
+                response.put("message", "New passwords do not match");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            User user = userDetails.getUser();
+            userService.changePassword(user, currentPassword, newPassword);
+
+            response.put("success", true);
+            response.put("message", "Password changed successfully");
+            return ResponseEntity.ok(response);
+
+        } catch (RuntimeException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * Get recordings for the currently authenticated student (only their own clips).
+     */
+    @GetMapping("/recordings")
+    public ResponseEntity<List<Map<String, Object>>> getMyRecordings(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        User user = userDetails.getUser();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+
+        // Get recordings where this user is the actual recorder (not all meeting recordings)
+        List<Map<String, Object>> result = recordingService.findByUser(user).stream()
+                .map(r -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", r.getId());
+                    map.put("fileName", r.getFileName());
+                    map.put("meetingTitle", r.getMeeting() != null ? r.getMeeting().getTitle() : "");
+                    map.put("createdAt", r.getCreatedAt() != null ? r.getCreatedAt().format(fmt) : "");
+                    map.put("durationSeconds", r.getDurationSeconds());
+                    map.put("fileSize", r.getFileSize());
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Delete a specific recording (only if the user owns it).
+     */
+    @DeleteMapping("/recordings/{id}")
+    public ResponseEntity<Map<String, Object>> deleteRecording(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Map<String, Object> response = new HashMap<>();
+        try {
+            recordingService.deleteRecording(id);
+            response.put("success", true);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+}

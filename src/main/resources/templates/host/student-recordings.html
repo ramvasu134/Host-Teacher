@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${student.displayName} + ' - Recordings'">Student Recordings - AiR Voices</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/host-dashboard.css}" rel="stylesheet">
+</head>
+<body class="theme-dark">
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo"><i class="fas fa-feather-alt"></i></div>
+            <span class="brand-text">AiR<span class="brand-highlight">Voices</span></span>
+        </div>
+        <ul class="sidebar-nav">
+            <li class="nav-item"><a th:href="@{/host/dashboard}"><i class="fas fa-home"></i><span>Dashboard</span></a></li>
+            <li class="nav-item"><a th:href="@{/host/meetings}"><i class="fas fa-microphone-alt"></i><span>Meetings</span></a></li>
+            <li class="nav-item"><a th:href="@{/host/students}"><i class="fas fa-user-graduate"></i><span>Students</span></a></li>
+            <li class="nav-item active"><a th:href="@{/host/recordings}"><i class="fas fa-record-vinyl"></i><span>Recordings</span></a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar"><span th:text="${#strings.substring(user.displayName, 0, 2).toUpperCase()}">TH</span></div>
+                <div class="user-details">
+                    <span class="user-name" th:text="${user.displayName}">Teacher</span>
+                    <span class="user-role">TEACHER</span>
+                </div>
+            </div>
+            <div class="sidebar-actions">
+                <button class="btn-settings" onclick="toggleSettingsDropdown(event)" title="Settings"><i class="fas fa-cog"></i></button>
+                <form th:action="@{/logout}" method="post" style="display:inline;">
+                    <button type="submit" class="btn-logout" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="top-header">
+            <button class="sidebar-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+            <div class="header-title">
+                <nav class="breadcrumb-nav">
+                    <a th:href="@{/host/recordings}"><i class="fas fa-arrow-left me-2"></i>All Recordings</a>
+                </nav>
+                <h2 th:text="${student.displayName} + '''s Recordings'">Student Recordings</h2>
+                <p class="subtitle" th:text="${#lists.size(recordings)} + ' clips recorded'">0 clips recorded</p>
+            </div>
+        </header>
+
+        <!-- Student Info Card -->
+        <div class="student-profile-card">
+            <div class="student-avatar-large" th:text="${#strings.substring(student.displayName, 0, 2).toUpperCase()}">ST</div>
+            <div class="student-details">
+                <h3 th:text="${student.displayName}">Student Name</h3>
+                <div class="student-meta">
+                    <span><i class="fas fa-user"></i> Username: <strong th:text="${student.username}">username</strong></span>
+                    <span><i class="fas fa-record-vinyl"></i> Total Clips: <strong th:text="${#lists.size(recordings)}">0</strong></span>
+                    <span th:if="${student.lastLoginAt}"><i class="fas fa-clock"></i> Last Active: <strong th:text="${#temporals.format(student.lastLoginAt, 'MMM dd, yyyy')}">Date</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recordings List -->
+        <div class="card-panel">
+            <div class="panel-header">
+                <h3><i class="fas fa-list me-2"></i>All Clips</h3>
+                <div class="actions">
+                    <button class="btn btn-outline-light btn-sm" onclick="downloadAllStudentRecordings()">
+                        <i class="fas fa-download me-1"></i>Download All
+                    </button>
+                </div>
+            </div>
+
+            <div th:if="${#lists.isEmpty(recordings)}" class="empty-state-large">
+                <i class="fas fa-record-vinyl"></i>
+                <h4>No Recordings Yet</h4>
+                <p>This student hasn't recorded any audio clips yet</p>
+            </div>
+
+            <div class="recordings-list">
+                <div th:each="rec, iterStat : ${recordings}" class="recording-item">
+                    <div class="recording-number" th:text="${iterStat.count}">1</div>
+                    <div class="recording-icon">
+                        <i class="fas fa-waveform-lines"></i>
+                    </div>
+                    <div class="recording-info">
+                        <h4 class="recording-name" th:text="'Clip ' + ${iterStat.count}">Clip 1</h4>
+                        <div class="recording-meta">
+                            <span class="meta-tag">
+                                <i class="fas fa-calendar"></i>
+                                <span th:text="${#temporals.format(rec.createdAt, 'MMM dd, yyyy HH:mm')}">Date</span>
+                            </span>
+                            <span class="meta-tag">
+                                <i class="fas fa-clock"></i>
+                                <span th:text="${rec.durationSeconds} + ' seconds'">Duration</span>
+                            </span>
+                            <span class="meta-tag">
+                                <i class="fas fa-hdd"></i>
+                                <span th:text="${#numbers.formatDecimal(rec.fileSize / 1024.0, 1, 1) + ' KB'}">Size</span>
+                            </span>
+                        </div>
+
+                        <!-- Transcript -->
+                        <div th:if="${recordingTranscripts.containsKey(rec.id)}" class="transcript-section">
+                            <div class="transcript-header">
+                                <span><i class="fas fa-file-alt me-1"></i>Transcript</span>
+                                <button class="expand-btn" th:onclick="'toggleTranscript(' + ${rec.id} + ')'">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="transcript-body" th:id="'transcript-' + ${rec.id}">
+                                <div th:each="transcript : ${recordingTranscripts.get(rec.id)}">
+                                    <p class="transcript-content" th:text="${transcript.content}">Transcript content...</p>
+                                    <div class="transcript-meta-info">
+                                        <span th:if="${transcript.language}"><i class="fas fa-language"></i> <span th:text="${transcript.language}">en</span></span>
+                                        <span><i class="fas fa-stopwatch"></i> <span th:text="${transcript.startTimeSeconds}">0</span>s - <span th:text="${transcript.endTimeSeconds}">0</span>s</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="recording-actions">
+                        <a th:href="@{/api/meeting/recording/{id}/play(id=${rec.id})}" target="_blank" class="rec-action-btn play" title="Play">
+                            <i class="fas fa-play"></i>
+                        </a>
+                        <a th:href="@{/api/meeting/recording/{id}/download(id=${rec.id})}" class="rec-action-btn download" title="Download">
+                            <i class="fas fa-download"></i>
+                        </a>
+                        <button class="rec-action-btn delete" title="Delete" th:onclick="'deleteRecording(' + ${rec.id} + ')'">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/host-dashboard.js}"></script>
+    <script>
+        function deleteRecording(id) {
+            if (confirm('Are you sure you want to delete this recording and its transcript?')) {
+                fetch('/api/meeting/recording/' + id, { method: 'DELETE' })
+                    .then(response => {
+                        if (response.ok) location.reload();
+                        else alert('Failed to delete recording');
+                    });
+            }
+        }
+
+        function toggleTranscript(id) {
+            const body = document.getElementById('transcript-' + id);
+            body.classList.toggle('expanded');
+        }
+
+        function downloadAllStudentRecordings() {
+            alert('Download all recordings - feature coming soon');
+        }
+    </script>
+
+    <style>
+        .breadcrumb-nav {
+            margin-bottom: 8px;
+        }
+        .breadcrumb-nav a {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .breadcrumb-nav a:hover {
+            text-decoration: underline;
+        }
+
+        .student-profile-card {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.05));
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 16px;
+            padding: 24px 30px;
+            margin-bottom: 24px;
+        }
+        .student-avatar-large {
+            width: 72px; height: 72px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        .student-details h3 {
+            margin: 0 0 10px;
+            font-size: 22px;
+            color: var(--text-primary);
+        }
+        .student-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .student-meta span {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .student-meta span i {
+            margin-right: 6px;
+            color: var(--text-muted);
+        }
+        .student-meta strong {
+            color: var(--text-primary);
+        }
+
+        .recordings-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .recording-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 20px 24px;
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            transition: all 0.2s ease;
+        }
+        .recording-item:hover {
+            background: rgba(99, 102, 241, 0.08);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .recording-number {
+            width: 36px; height: 36px;
+            background: rgba(99, 102, 241, 0.15);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .recording-icon {
+            width: 54px; height: 54px;
+            background: linear-gradient(135deg, #ef4444, #f87171);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .recording-icon i { color: white; font-size: 20px; }
+
+        .recording-info { flex: 1; }
+        .recording-name { font-size: 16px; font-weight: 600; margin-bottom: 10px; color: var(--text-primary); }
+        .recording-meta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+        .meta-tag {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; color: var(--text-secondary);
+            background: rgba(15, 23, 42, 0.5);
+            padding: 5px 10px;
+            border-radius: 6px;
+        }
+        .meta-tag i { font-size: 10px; color: var(--text-muted); }
+
+        .transcript-section {
+            background: rgba(34, 197, 94, 0.05);
+            border: 1px solid rgba(34, 197, 94, 0.15);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .transcript-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(34, 197, 94, 0.08);
+            font-size: 13px;
+            font-weight: 600;
+            color: #22c55e;
+        }
+        .expand-btn {
+            background: none;
+            border: none;
+            color: #22c55e;
+            cursor: pointer;
+            padding: 4px;
+            transition: transform 0.2s;
+        }
+        .transcript-body {
+            padding: 14px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+        }
+        .transcript-body.expanded {
+            max-height: 500px;
+            padding: 14px;
+        }
+        .transcript-content {
+            margin: 0 0 10px;
+            font-size: 14px;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        .transcript-meta-info {
+            display: flex;
+            gap: 16px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .transcript-meta-info i { margin-right: 4px; }
+
+        .recording-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .rec-action-btn {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            border: none;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        .rec-action-btn.play { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+        .rec-action-btn.play:hover { box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4); }
+        .rec-action-btn.download { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+        .rec-action-btn.download:hover { background: rgba(59, 130, 246, 0.25); }
+        .rec-action-btn.delete { background: rgba(239, 68, 68, 0.1); color: #f87171; }
+        .rec-action-btn.delete:hover { background: rgba(239, 68, 68, 0.2); }
+
+        .empty-state-large {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state-large i { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+        .empty-state-large h4 { margin: 0 0 8px; color: var(--text-secondary); }
+        .empty-state-large p { margin: 0; font-size: 14px; }
+
+        .btn-outline-light {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-outline-light:hover {
+            border-color: var(--accent);
+            color: var(--accent-light);
+        }
+    </style>
+</body>
+</html>
+

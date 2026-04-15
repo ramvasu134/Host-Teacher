@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Meeting</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/student-room.css}" rel="stylesheet">
+    <style>
+        /* ===== JOIN PAGE EXTRAS ===== */
+        .sj-body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sj-main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sj-card {
+            background: var(--sr-bg-card);
+            border: 1px solid var(--sr-border);
+            border-radius: 20px;
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 28px;
+        }
+
+        /* Logo */
+        .sj-logo {
+            position: relative;
+            width: 80px;
+            height: 80px;
+        }
+        .sj-logo-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: conic-gradient(#60a5fa, #a78bfa, #f472b6, #fb923c, #60a5fa);
+            animation: sj-spin 4s linear infinite;
+        }
+        @keyframes sj-spin { to { transform: rotate(360deg); } }
+        .sj-logo-inner {
+            position: absolute;
+            inset: 4px;
+            border-radius: 50%;
+            background: var(--sr-bg-card);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .sj-logo-icon { font-size: 20px; color: #60a5fa; }
+        .sj-logo-text { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--sr-text); }
+
+        /* Title */
+        .sj-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--sr-text);
+            text-align: center;
+        }
+        .sj-subtitle {
+            font-size: 13px;
+            color: var(--sr-text-dim);
+            text-align: center;
+            margin-top: -20px;
+        }
+
+        /* Form */
+        .sj-form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .sj-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--sr-bg-input);
+            border: 1px solid var(--sr-border);
+            border-radius: 12px;
+            color: var(--sr-text);
+            font-size: 15px;
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .sj-input:focus {
+            border-color: rgba(96, 165, 250, 0.5);
+        }
+        .sj-input::placeholder {
+            text-transform: none;
+            letter-spacing: normal;
+            color: var(--sr-text-dim);
+        }
+        .sj-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--sr-green);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: opacity 0.2s;
+        }
+        .sj-btn:hover { opacity: 0.88; }
+
+        /* Error */
+        .sj-error {
+            width: 100%;
+            background: rgba(239,68,68,0.12);
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 10px;
+            color: #fca5a5;
+            font-size: 13px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body class="sj-body">
+
+    <!-- ===== HEADER ===== -->
+    <header class="sr-header">
+        <div class="sr-header-left">
+            <span class="sr-meeting-title">Meeting Room</span>
+        </div>
+        <div class="sr-header-right">
+            <div class="sr-user-badge">
+                <span class="sr-user-initials" id="userInitials">?</span>
+            </div>
+            <!-- Settings anchor (themes + logout) -->
+            <div class="sr-settings-anchor">
+                <button class="sr-icon-btn" id="btnSettingsToggle" onclick="srToggleSettings(event)" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <div class="sr-settings-dropdown" id="srSettingsDropdown">
+                    <a href="#" class="sr-dd-item" onclick="srOpenThemes(event)">
+                        <i class="fas fa-palette"></i>
+                        <span>Themes</span>
+                    </a>
+                    <div class="sr-dd-divider"></div>
+                    <form th:action="@{/logout}" method="post" style="margin:0">
+                        <button type="submit" class="sr-dd-item sr-dd-logout">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </button>
+                    </form>
+                </div>
+                <!-- Themes panel -->
+                <div class="sr-themes-panel" id="srThemesPanel">
+                    <button class="sr-theme-item" data-theme="light"        onclick="srApplyTheme('light')"><span class="sr-theme-sel" id="tsel-light"></span><span class="sr-theme-emoji">☀️</span><span>Light</span></button>
+                    <button class="sr-theme-item" data-theme="dark"         onclick="srApplyTheme('dark')"><span class="sr-theme-sel" id="tsel-dark"></span><span class="sr-theme-emoji">🌙</span><span>Dark</span></button>
+                    <button class="sr-theme-item" data-theme="ocean"        onclick="srApplyTheme('ocean')"><span class="sr-theme-sel" id="tsel-ocean"></span><span class="sr-theme-emoji">🌊</span><span>Ocean</span></button>
+                    <button class="sr-theme-item" data-theme="forest"       onclick="srApplyTheme('forest')"><span class="sr-theme-sel" id="tsel-forest"></span><span class="sr-theme-emoji">🌲</span><span>Forest</span></button>
+                    <button class="sr-theme-item" data-theme="matte-black"  onclick="srApplyTheme('matte-black')"><span class="sr-theme-sel" id="tsel-matte-black"></span><span class="sr-theme-emoji">🖤</span><span>Matte Black</span></button>
+                    <button class="sr-theme-item" data-theme="purple"       onclick="srApplyTheme('purple')"><span class="sr-theme-sel" id="tsel-purple"></span><span class="sr-theme-emoji">💜</span><span>Purple</span></button>
+                    <button class="sr-theme-item sr-theme-item-locked" data-theme="dull-white" title="Coming soon"><span class="sr-theme-sel" id="tsel-dull-white"></span><span class="sr-theme-emoji">🤍</span><span>Dull White</span></button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== RAINBOW BAR ===== -->
+    <div class="sr-gradient-bar"></div>
+
+    <!-- ===== MAIN ===== -->
+    <main class="sj-main">
+        <div class="sj-card">
+            <!-- Logo -->
+            <div class="sj-logo">
+                <div class="sj-logo-ring"></div>
+                <div class="sj-logo-inner">
+                    <i class="fas fa-feather-alt sj-logo-icon"></i>
+                    <span class="sj-logo-text">AiR</span>
+                </div>
+            </div>
+
+            <div>
+                <div class="sj-title">Join a Meeting</div>
+                <div class="sj-subtitle">Enter the meeting code provided by your teacher</div>
+            </div>
+
+            <!-- Error -->
+            <div class="sj-error" th:if="${error}">
+                <i class="fas fa-exclamation-circle"></i>
+                <span th:text="${error}">Error</span>
+            </div>
+
+            <!-- Join Form -->
+            <form class="sj-form" th:action="@{/student/join}" method="post">
+                <input type="text"
+                       class="sj-input"
+                       name="meetingCode"
+                       placeholder="Enter meeting code"
+                       required
+                       autocomplete="off"
+                       maxlength="20">
+                <button type="submit" class="sj-btn">
+                    <i class="fas fa-door-open"></i>
+                    Join Meeting
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <!-- Hidden user data for JS -->
+    <div id="joinUserData"
+         th:data-user-name="${user.displayName}"
+         style="display:none;"></div>
+
+    <script>
+        // ===== Initials =====
+        (function () {
+            const el = document.getElementById('joinUserData');
+            const name = el ? el.dataset.userName : '';
+            function buildInitials(n) {
+                if (!n) return '?';
+                const p = n.trim().split(/\s+/);
+                return p.length >= 2 ? (p[0][0] + p[p.length - 1][0]).toUpperCase() : n.substring(0, 2).toUpperCase();
+            }
+            document.getElementById('userInitials').textContent = buildInitials(name);
+        })();
+
+        // ===== Settings dropdown =====
+        let isSettingsOpen = false;
+        let isThemesOpen   = false;
+
+        function srToggleSettings(e) {
+            e.stopPropagation();
+            isSettingsOpen = !isSettingsOpen;
+            document.getElementById('srSettingsDropdown').style.display = isSettingsOpen ? 'flex' : 'none';
+            if (!isSettingsOpen) closeThemesPanel();
+        }
+        function closeSettings() {
+            isSettingsOpen = false;
+            const d = document.getElementById('srSettingsDropdown');
+            if (d) d.style.display = 'none';
+        }
+        function srOpenThemes(e) {
+            e.preventDefault(); e.stopPropagation();
+            isThemesOpen = !isThemesOpen;
+            document.getElementById('srThemesPanel').style.display = isThemesOpen ? 'flex' : 'none';
+        }
+        function closeThemesPanel() {
+            isThemesOpen = false;
+            const p = document.getElementById('srThemesPanel');
+            if (p) p.style.display = 'none';
+        }
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.sr-settings-anchor')) { closeSettings(); closeThemesPanel(); }
+        });
+
+        // ===== Theme =====
+        function srApplyTheme(theme, silent) {
+            document.body.setAttribute('data-theme', theme);
+            if (!silent) localStorage.setItem('sr_theme', theme);
+            document.querySelectorAll('.sr-theme-sel').forEach(el => el.textContent = '');
+            const sel = document.getElementById('tsel-' + theme);
+            if (sel) sel.textContent = '•';
+        }
+
+        // Restore theme on load
+        const savedTheme = localStorage.getItem('sr_theme') || 'matte-black';
+        srApplyTheme(savedTheme, true);
+    </script>
+</body>
+</html>
+

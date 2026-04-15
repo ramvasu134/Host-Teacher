@@ -1,0 +1,18 @@
+target/
+data/
+recordings/
+uploads/
+.idea/
+*.iml
+.mvn/wrapper/maven-wrapper.jar
+.git/
+
+### Logs & temp files ###
+*.log
+app*.log
+*.docx
+~$*
+temp_*.html
+*.tmp
+.DS_Store
+Thumbs.db

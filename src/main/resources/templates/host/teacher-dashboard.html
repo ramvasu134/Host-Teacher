@@ -1,0 +1,3743 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${user.displayName} + ' - AiR Voices'">Teacher Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-card: #21262d;
+            --bg-card-hover: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --border-color: #30363d;
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gradient-primary: linear-gradient(135deg, #6366f1, #8b5cf6);
+            --gradient-success: linear-gradient(135deg, #22c55e, #16a34a);
+            --gradient-danger: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* ===== Header Bar ===== */
+        .header-bar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .brand-logo {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .brand-logo span {
+            color: var(--accent-light);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .meeting-timer {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: 13px;
+        }
+
+        .timer-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .timer-divider {
+            color: var(--text-muted);
+        }
+
+        .btn-start-meeting {
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-start-meeting:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-settings-header {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .btn-settings-header:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+
+        /* ===== Navigation Tabs ===== */
+        .nav-tabs-container {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 24px;
+        }
+
+        .nav-tabs-custom {
+            display: flex;
+            gap: 0;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-tab {
+            padding: 16px 24px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .nav-tab:hover {
+            color: var(--text-primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .nav-tab.active {
+            color: var(--text-primary);
+            border-bottom-color: var(--accent);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .nav-tab i {
+            font-size: 16px;
+        }
+
+        .nav-tab.create-student.active {
+            background: var(--gradient-primary);
+            color: white;
+            border-radius: 8px;
+            margin: 8px 0;
+            border-bottom: none;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .nav-tab.recordings-tab.active {
+            background: var(--gradient-success);
+            color: white;
+            border-radius: 8px;
+            margin: 8px 0;
+            border-bottom: none;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+        }
+
+        .nav-tab.transcripts-tab.active {
+            background: linear-gradient(135deg, #06b6d4, #0891b2);
+            color: white;
+            border-radius: 8px;
+            margin: 8px 0;
+            border-bottom: none;
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+        }
+
+        /* ===== Main Content ===== */
+        .main-content {
+            padding: 24px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* ===== Create Student Form ===== */
+        .form-container {
+            max-width: 100%;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .password-wrapper {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .password-toggle:hover {
+            color: var(--text-secondary);
+        }
+
+        /* Toggle Switches */
+        .toggle-group {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .toggle-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .toggle-icon {
+            width: 32px;
+            height: 32px;
+            background: rgba(99, 102, 241, 0.15);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-light);
+        }
+
+        .toggle-icon.success {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+        }
+
+        .toggle-icon.warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+        }
+
+        .toggle-text h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .toggle-text p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-card-hover);
+            border-radius: 26px;
+            transition: 0.3s;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: var(--success);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+
+        .btn-create-student {
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 10px;
+            padding: 14px 28px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .btn-create-student:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        /* ===== Students List ===== */
+        .students-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .student-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.2s ease;
+        }
+
+        .student-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .student-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .student-avatar {
+            width: 44px;
+            height: 44px;
+            background: var(--gradient-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: white;
+        }
+
+        .student-info h4 {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .student-info p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        /* ===== Students List Row Styles ===== */
+        .students-list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .students-list-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .btn-refresh {
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-refresh:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+
+        .search-students {
+            position: relative;
+            flex: 1;
+            max-width: 300px;
+        }
+
+        .search-students i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .search-students input {
+            width: 100%;
+            padding: 8px 14px 8px 36px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .search-students input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .search-students input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .students-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .student-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .student-row:hover {
+            background: rgba(99, 102, 241, 0.08);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .student-row-main {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .student-row-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+        }
+
+        .student-row-name .name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .student-row-name .username {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .status-indicator i {
+            font-size: 8px;
+        }
+
+        .status-indicator.online {
+            color: #22c55e;
+        }
+
+        .status-indicator.offline {
+            color: #ef4444;
+        }
+
+        .student-row-dates {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .student-row-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .action-btn i {
+            font-size: 12px;
+        }
+
+        .btn-call {
+            background: #22c55e;
+            color: white;
+            padding: 8px 10px;
+            border-radius: 50%;
+        }
+
+        .btn-call:hover {
+            background: #16a34a;
+            transform: scale(1.1);
+        }
+
+        .btn-edit {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: #2563eb;
+        }
+
+        .btn-block {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-block:hover {
+            background: #d97706;
+        }
+
+        .btn-unblock {
+            background: #22c55e;
+            color: white;
+        }
+
+        .btn-unblock:hover {
+            background: #16a34a;
+        }
+
+        .btn-share {
+            background: linear-gradient(135deg, #06b6d4, #0891b2);
+            color: white;
+        }
+
+        .btn-share:hover {
+            background: linear-gradient(135deg, #0891b2, #0e7490);
+        }
+
+        .btn-mute {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .btn-mute:hover {
+            background: #7c3aed;
+        }
+
+        .btn-delete {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #dc2626;
+        }
+
+        /* ===== Meeting Controls Styles ===== */
+        .meeting-controls-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 200px);
+            min-height: 500px;
+        }
+
+        .meeting-status-bar {
+            background: linear-gradient(135deg, #065f46, #047857);
+            padding: 20px 24px;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .status-info {
+            color: white;
+            font-size: 14px;
+        }
+
+        .status-text {
+            opacity: 0.9;
+        }
+
+        .meeting-participants-area {
+            flex: 1;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+        }
+
+        .participants-content {
+            text-align: center;
+            width: 100%;
+        }
+
+        .no-participants {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            color: var(--text-muted);
+        }
+
+        .no-participants p {
+            font-size: 14px;
+        }
+
+        .air-logo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: contain;
+        }
+
+        .air-logo-fallback {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #1e40af, #6366f1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 800;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .logo-a { color: #f97316; }
+        .logo-i { color: #3b82f6; }
+        .logo-r { color: #22c55e; }
+
+        .meeting-audio-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 24px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .audio-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-speaker {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 2px solid var(--border-color);
+        }
+
+        .btn-speaker:hover {
+            background: var(--bg-card-hover);
+            transform: scale(1.05);
+        }
+
+        .btn-speaker.muted {
+            color: #ef4444;
+        }
+
+        .btn-mic {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            width: 72px;
+            height: 72px;
+            font-size: 28px;
+        }
+
+        .btn-mic:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-mic.active {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+
+        .btn-mic.active:hover {
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+        }
+
+        .btn-broadcast {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+        }
+
+        .btn-broadcast:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        /* ===== Recordings Section ===== */
+        .recordings-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .recordings-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .recordings-info i {
+            color: var(--warning);
+        }
+
+        .recordings-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            width: 200px;
+            padding: 10px 14px 10px 38px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .btn-action {
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .btn-refresh {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .btn-refresh:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-save-all {
+            background: var(--gradient-success);
+            color: white;
+        }
+
+        .btn-save-all:hover {
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+        }
+
+        .btn-clear-all {
+            background: var(--gradient-danger);
+            color: white;
+        }
+
+        .btn-clear-all:hover {
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Student Recordings List */
+        .student-recordings-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .student-recording-row {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .student-recording-row:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .student-recording-row.expanded {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .student-recording-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .student-recording-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-transform: uppercase;
+        }
+
+        .student-recording-count {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .expand-icon {
+            color: var(--text-muted);
+            transition: transform 0.2s ease;
+        }
+
+        .student-recording-row.expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+
+        /* Recording Items */
+        .recording-items {
+            display: none;
+            padding: 0 18px 18px;
+            margin-top: -8px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            margin-left: 0;
+            margin-right: 0;
+        }
+
+        .recording-items.show {
+            display: block;
+        }
+
+        .recording-item {
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .recording-item:last-child {
+            border-bottom: none;
+        }
+
+        .recording-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .recording-meta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .recording-meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .recording-meta i {
+            color: var(--accent-light);
+        }
+
+        .auto-saved-badge {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .recording-actions-btns {
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn-play-recording, .btn-download-recording, .btn-transcript-recording, .btn-delete-recording {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-play-recording {
+            background: var(--gradient-success);
+            color: white;
+        }
+
+        .btn-play-recording:hover {
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+        }
+
+        .btn-download-recording {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+        }
+
+        .btn-download-recording:hover {
+            background: rgba(59, 130, 246, 0.25);
+        }
+
+        .btn-transcript-recording {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+        }
+
+        .btn-transcript-recording:hover {
+            background: rgba(245, 158, 11, 0.25);
+        }
+
+        .btn-delete-recording {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+
+        .btn-delete-recording:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        .transcript-preview-inline {
+            background: rgba(34, 197, 94, 0.05);
+            border: 1px solid rgba(34, 197, 94, 0.15);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-top: 10px;
+        }
+
+        .transcript-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--success);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .transcript-text-preview {
+            margin: 0;
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .audio-player {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .audio-player:hover {
+            background: rgba(99, 102, 241, 0.15);
+        }
+
+        .audio-player i {
+            color: var(--accent-light);
+        }
+
+        .audio-player span {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* ===== Settings Dropdown ===== */
+        .settings-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 8px;
+            min-width: 220px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            display: none;
+            z-index: 1000;
+        }
+
+        .settings-dropdown.show {
+            display: block;
+        }
+
+        .settings-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        .settings-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--text-primary);
+        }
+
+        .settings-item i {
+            width: 18px;
+            text-align: center;
+        }
+
+        .settings-item-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            color: var(--text-secondary);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .settings-item-toggle:hover {
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .settings-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 8px 0;
+        }
+
+        /* ===== Modals ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 480px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 36px;
+            height: 36px;
+            background: var(--bg-card);
+            border: none;
+            border-radius: 10px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .btn-secondary {
+            padding: 12px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-primary {
+            padding: 12px 24px;
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        /* Schedule Modal */
+        .schedule-form .form-row {
+            margin-bottom: 16px;
+        }
+
+        .schedule-form label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .schedule-form textarea {
+            width: 100%;
+            padding: 14px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            resize: vertical;
+            min-height: 80px;
+            font-family: inherit;
+        }
+
+        .schedule-form textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Speak Detection Type Modal */
+        .detection-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .detection-option {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .detection-option:hover {
+            border-color: var(--accent);
+        }
+
+        .detection-option.selected {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .detection-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-card-hover);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: var(--accent-light);
+        }
+
+        .detection-info h4 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .detection-info p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .detection-check {
+            margin-left: auto;
+            width: 24px;
+            height: 24px;
+            background: var(--success);
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .detection-option.selected .detection-check {
+            display: flex;
+        }
+
+        .center-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            padding-left: 64px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* Zoom Control Modal */
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .zoom-btn {
+            width: 120px;
+            padding: 14px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .zoom-btn:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+
+        .zoom-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .btn-reset-zoom {
+            width: 100%;
+            padding: 14px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-reset-zoom:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+
+        /* Themes Modal */
+        .themes-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .theme-option {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .theme-option:hover {
+            border-color: var(--accent);
+        }
+
+        .theme-option.active {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .theme-emoji {
+            font-size: 28px;
+        }
+
+        .theme-name {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .theme-check {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            background: var(--success);
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: white;
+        }
+
+        .theme-option.active .theme-check {
+            display: flex;
+        }
+
+        /* Alert messages */
+        .alert-custom {
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-success {
+            background: rgba(34, 197, 94, 0.15);
+            color: #86efac;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state h4 {
+            font-size: 18px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        /* Transcript Modal */
+        .transcript-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .transcript-modal-content {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border-color);
+        }
+
+        .transcript-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .transcript-modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-primary);
+        }
+
+        .transcript-modal-header button {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .transcript-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .transcript-modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .transcript-modal-footer button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .transcript-modal-footer button:first-child {
+            background: var(--gradient-primary);
+            color: white;
+        }
+
+        .transcript-modal-footer button:last-child {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-tabs-custom {
+                flex-wrap: wrap;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .recordings-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .recordings-actions {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header Bar -->
+    <header class="header-bar">
+        <div class="brand">
+            <div class="brand-logo" th:text="${user.displayName}">VK2</div>
+        </div>
+
+        <div class="header-right">
+            <div class="meeting-timer">
+                <span class="timer-value" id="meetingMinutes">0</span>
+                <span>M</span>
+                <span class="timer-divider">/</span>
+                <span class="timer-value" id="meetingOnline">0</span>
+                <span>O</span>
+            </div>
+
+            <button class="btn-start-meeting" id="startMeetingBtn" onclick="toggleMeeting()">
+                <span>Start Meeting</span>
+            </button>
+
+            <div style="position: relative;">
+                <button class="btn-settings-header" onclick="toggleSettings()">
+                    <i class="fas fa-cog"></i>
+                </button>
+
+                <div class="settings-dropdown" id="settingsDropdown">
+                    <button class="settings-item" onclick="openModal('changePasswordModal')">
+                        <i class="fas fa-key"></i>
+                        <span>Change Password</span>
+                    </button>
+                    <button class="settings-item" onclick="openModal('scheduleModal')">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Schedule</span>
+                    </button>
+                    <button class="settings-item" onclick="openModal('themesModal')">
+                        <i class="fas fa-palette"></i>
+                        <span>Themes</span>
+                    </button>
+                    <button class="settings-item" onclick="openModal('speakDetectionModal')">
+                        <i class="fas fa-waveform-lines"></i>
+                        <span>Speak Detection Type</span>
+                    </button>
+                    <button class="settings-item" onclick="openModal('zoomModal')">
+                        <i class="fas fa-search-plus"></i>
+                        <span>Zoom Students</span>
+                    </button>
+                    <div class="settings-item-toggle">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i class="fas fa-record-vinyl"></i>
+                            <span>Full Meeting Recording</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="fullRecordingToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-divider"></div>
+                    <form th:action="@{/logout}" method="post" style="margin: 0;">
+                        <button type="submit" class="settings-item" style="color: var(--danger);">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs-container">
+        <ul class="nav-tabs-custom">
+            <li>
+                <a class="nav-tab active" data-tab="meeting-controls" onclick="switchTab('meeting-controls')">
+                    <i class="fas fa-sliders-h"></i>
+                    <span>Meeting Controls</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-tab" data-tab="chat" onclick="switchTab('chat')">
+                    <i class="fas fa-comments"></i>
+                    <span>Chat</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-tab" data-tab="students-list" onclick="switchTab('students-list')">
+                    <i class="fas fa-users"></i>
+                    <span>Students List</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-tab create-student" data-tab="create-student" onclick="switchTab('create-student')">
+                    <i class="fas fa-user-plus"></i>
+                    <span>Create Student</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-tab recordings-tab" data-tab="recordings" onclick="switchTab('recordings')">
+                    <i class="fas fa-record-vinyl"></i>
+                    <span>Recordings</span>
+                </a>
+            </li>
+            <li>
+                <a class="nav-tab transcripts-tab" data-tab="transcripts" onclick="switchTab('transcripts')">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Transcripts</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Alerts -->
+        <div th:if="${success}" class="alert-custom alert-success">
+            <i class="fas fa-check-circle"></i>
+            <span th:text="${success}"></span>
+        </div>
+        <div th:if="${error}" class="alert-custom alert-danger">
+            <i class="fas fa-exclamation-circle"></i>
+            <span th:text="${error}"></span>
+        </div>
+
+        <!-- Meeting Controls Tab -->
+        <div class="tab-content active" id="meeting-controls-tab">
+            <div class="meeting-controls-container">
+                <!-- Status Bar -->
+                <div class="meeting-status-bar">
+                    <div class="status-info" id="meetingStatusInfo">
+                        <span class="status-text">Meeting not started</span>
+                    </div>
+                </div>
+
+                <!-- Students in Meeting Area -->
+                <div class="meeting-participants-area">
+                    <div class="participants-content" id="participantsContent">
+                        <div class="no-participants">
+                            <img th:src="@{/images/air-logo.png}" alt="AiR" class="air-logo" onerror="this.style.display='none'">
+                            <div class="air-logo-fallback">
+                                <span class="logo-a">A</span><span class="logo-i">i</span><span class="logo-r">R</span>
+                            </div>
+                            <p>No students in meeting yet</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Audio Controls -->
+                <div class="meeting-audio-controls">
+                    <button class="audio-btn btn-speaker" id="speakerBtn" onclick="toggleSpeaker()">
+                        <i class="fas fa-volume-up"></i>
+                    </button>
+
+                    <button class="audio-btn btn-mic" id="micBtn" onclick="toggleMic()">
+                        <i class="fas fa-microphone-slash"></i>
+                    </button>
+
+                    <button class="audio-btn btn-broadcast" id="broadcastBtn" onclick="startBroadcast()">
+                        <i class="fas fa-broadcast-tower"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Tab -->
+        <div class="tab-content" id="chat-tab">
+            <div class="empty-state">
+                <i class="fas fa-comments"></i>
+                <h4>Chat</h4>
+                <p>Start a meeting to access chat</p>
+            </div>
+        </div>
+
+        <!-- Students List Tab -->
+        <div class="tab-content" id="students-list-tab">
+            <div class="students-list-container" th:if="${students != null and #lists.size(students) > 0}">
+                <div class="students-list-header">
+                    <button class="btn-refresh" onclick="location.reload()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                    <div class="search-students">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="studentTableSearch" placeholder="Search students..." onkeyup="filterStudentTable()">
+                    </div>
+                </div>
+                <div class="students-rows">
+                    <div th:each="student : ${students}" class="student-row" th:data-name="${student.displayName}" th:data-username="${student.username}">
+                        <div class="student-row-main">
+                            <div class="student-row-name">
+                                <span class="name" th:text="${student.displayName}">sha</span>
+                                <span class="username">(<span th:text="${student.username}">sho</span>)</span>
+                                <span class="status-indicator" th:classappend="${student.active ? 'online' : 'offline'}">
+                                    <i class="fas fa-circle"></i>
+                                    <span th:text="${student.active ? 'Online' : 'Offline'}">Offline</span>
+                                </span>
+                            </div>
+                            <div class="student-row-dates">
+                                Created: <span th:text="${#temporals.format(student.createdAt, 'dd/MM/yyyy')}">04/04/2026</span>
+                                | Last seen: <span th:text="${student.lastLoginAt != null ? #temporals.format(student.lastLoginAt, 'dd/MM/yyyy, HH:mm:ss') : 'Never'}">14/04/2026, 10:28:22</span>
+                            </div>
+                        </div>
+                        <div class="student-row-actions">
+                            <button class="action-btn btn-share"
+                                    th:data-id="${student.id}"
+                                    th:data-name="${student.displayName}"
+                                    th:data-username="${student.username}"
+                                    onclick="doShare(this)" title="Share Credentials">
+                                <i class="fas fa-share-alt"></i> Share
+                            </button>
+                            <button class="action-btn btn-call"
+                                    th:data-id="${student.id}"
+                                    th:data-name="${student.displayName}"
+                                    onclick="doCall(this)" title="Call Student">
+                                <i class="fas fa-phone"></i>
+                            </button>
+                            <button class="action-btn btn-edit"
+                                    th:data-id="${student.id}"
+                                    th:data-name="${student.displayName}"
+                                    th:data-username="${student.username}"
+                                    onclick="doEdit(this)" title="Edit Student">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="action-btn btn-block"
+                                    th:data-id="${student.id}"
+                                    th:data-name="${student.displayName}"
+                                    th:classappend="${student.active ? '' : ' btn-unblock'}"
+                                    onclick="doBlock(this)"
+                                    th:title="${student.active ? 'Block Student' : 'Unblock Student'}">
+                                <i th:class="${student.active ? 'fas fa-ban' : 'fas fa-check-circle'}"></i>
+                                <span th:text="${student.active ? 'Block' : 'Unblock'}">Block</span>
+                            </button>
+                            <button class="action-btn btn-mute"
+                                    th:data-id="${student.id}"
+                                    th:data-name="${student.displayName}"
+                                    onclick="doMute(this)" title="Mute Student">
+                                <i class="fas fa-microphone-slash"></i> Mute
+                            </button>
+                            <button class="action-btn btn-delete"
+                                    th:data-id="${student.id}"
+                                    th:data-name="${student.displayName}"
+                                    onclick="doDelete(this)" title="Delete Student">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="empty-state" th:if="${students == null or #lists.size(students) == 0}">
+                <i class="fas fa-users"></i>
+                <h4>No Students Yet</h4>
+                <p>Create your first student to get started</p>
+            </div>
+        </div>
+
+        <!-- Create Student Tab -->
+        <div class="tab-content" id="create-student-tab">
+            <div class="form-container">
+                <form th:action="@{/host/students/add}" method="post">
+                    <div class="form-group">
+                        <label>Student Name</label>
+                        <input type="text" class="form-input" name="displayName" placeholder="Min 1 Character" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" class="form-input" name="username" placeholder="vk99" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <div class="password-wrapper">
+                                <input type="password" class="form-input" name="password" id="studentPassword" placeholder="••••••" required>
+                                <button type="button" class="password-toggle" onclick="togglePassword('studentPassword', this)">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="toggle-group">
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <div class="toggle-icon">
+                                    <i class="fas fa-lock"></i>
+                                </div>
+                                <div class="toggle-text">
+                                    <h4>Enable Device Lock</h4>
+                                    <p>When enabled, student can only login from the first device they use after account creation</p>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="deviceLock">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="toggle-group">
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <div class="toggle-icon success">
+                                    <i class="fas fa-record-vinyl"></i>
+                                </div>
+                                <div class="toggle-text">
+                                    <h4>Show Recordings to Student</h4>
+                                    <p>When enabled, student can view their recordings. When disabled, recordings are still created but only visible to teacher.</p>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="showRecordings" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="toggle-group">
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <div class="toggle-icon warning">
+                                    <i class="fas fa-volume-up"></i>
+                                </div>
+                                <div class="toggle-text">
+                                    <h4>Allow Student Speaker Off/On</h4>
+                                    <p>When enabled, student can use the volume button. When disabled, student volume button stays disabled.</p>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="allowSpeaker" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="teacherName" th:value="${user.teacherName}">
+                    <input type="hidden" name="role" value="STUDENT">
+
+                    <button type="submit" class="btn-create-student">
+                        <i class="fas fa-user-plus"></i>
+                        <span>Create Student</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Recordings Tab -->
+        <div class="tab-content" id="recordings-tab">
+            <div class="recordings-header">
+                <div class="recordings-info">
+                    <i class="fas fa-info-circle"></i>
+                    <span>All students recordings are listed below. Recordings are deleted after 14 days.</span>
+                </div>
+                <div class="recordings-actions">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search recordings..." id="recordingsSearch">
+                    </div>
+                    <button class="btn-action btn-refresh" onclick="refreshRecordings()">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>Refresh</span>
+                    </button>
+                    <button class="btn-action btn-save-all" onclick="saveAllRecordings()">
+                        <i class="fas fa-download"></i>
+                        <span>Save All</span>
+                    </button>
+                    <button class="btn-action btn-clear-all" onclick="clearAllRecordings()">
+                        <i class="fas fa-trash-alt"></i>
+                        <span>Clear All</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- VIEW TOGGLE BUTTONS -->
+            <div class="view-toggle-container" style="display:flex; justify-content:center; margin-bottom:20px; gap:8px;">
+                <button class="view-toggle-btn active" data-view="both" onclick="setRecordingsView('both')" style="display:flex; align-items:center; gap:8px; padding:10px 20px; background:linear-gradient(135deg,#6366f1,#8b5cf6); border:none; border-radius:8px; color:white; font-size:14px; font-weight:600; cursor:pointer;">
+                    <i class="fas fa-columns"></i> Both
+                </button>
+                <button class="view-toggle-btn" data-view="recordings" onclick="setRecordingsView('recordings')" style="display:flex; align-items:center; gap:8px; padding:10px 20px; background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3); border-radius:8px; color:#818cf8; font-size:14px; font-weight:600; cursor:pointer;">
+                    <i class="fas fa-record-vinyl"></i> Recordings Only
+                </button>
+                <button class="view-toggle-btn" data-view="transcripts" onclick="setRecordingsView('transcripts')" style="display:flex; align-items:center; gap:8px; padding:10px 20px; background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3); border-radius:8px; color:#818cf8; font-size:14px; font-weight:600; cursor:pointer;">
+                    <i class="fas fa-file-alt"></i> Transcripts Only
+                </button>
+            </div>
+
+            <!-- 2-COLUMN TABLE VIEW -->
+            <div class="student-recordings-list" id="recordingsList">
+                <div th:each="entry : ${studentRecordings}" class="student-recording-wrapper">
+                    <div class="student-recording-row" th:onclick="'toggleRecordings(this)'" th:data-student="${entry.key}">
+                        <div class="student-recording-info">
+                            <div class="student-recording-name" th:text="${entry.key}">Student Name</div>
+                            <div class="student-recording-count" th:text="${#lists.size(entry.value)} + ' clips'">X recordings</div>
+                        </div>
+                        <i class="fas fa-chevron-right expand-icon"></i>
+                    </div>
+                    <div class="recording-items">
+                        <!-- 2-Column Table -->
+                        <table class="recordings-table-2col">
+                            <thead>
+                                <tr>
+                                    <th class="col-rec-header">Recording</th>
+                                    <th class="col-trans-header">Transcript</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="rec, iterStat : ${entry.value}" class="recording-row-2col">
+                                    <!-- Recording Column -->
+                                    <td class="col-recording-data">
+                                        <div class="rec-info-block">
+                                            <div class="recording-meta">
+                                                <span><strong>Clip #<span th:text="${iterStat.count}">1</span></strong></span>
+                                                <span><i class="fas fa-ruler"></i><span th:text="${rec.durationSeconds != null ? rec.durationSeconds + 's' : 'N/A'}">12s</span></span>
+                                                <span><i class="fas fa-calendar"></i><span th:text="${#temporals.format(rec.createdAt, 'dd/MM/yyyy')}">13/04/2026</span></span>
+                                                <span><i class="fas fa-clock"></i><span th:text="${#temporals.format(rec.createdAt, 'HH:mm:ss')}">21:45:28</span></span>
+                                            </div>
+                                            <div class="recording-actions-btns">
+                                                <button class="btn-play-recording" th:onclick="'event.stopPropagation(); playAudioInline(' + ${rec.id} + ', this)'" title="Play">
+                                                    <i class="fas fa-play"></i>
+                                                </button>
+                                                <a th:href="@{/api/meeting/recording/{id}/download(id=${rec.id})}" class="btn-download-recording" title="Download">
+                                                    <i class="fas fa-download"></i>
+                                                </a>
+                                                <button class="btn-delete-recording" th:onclick="'event.stopPropagation(); deleteRecording(' + ${rec.id} + ')'" title="Delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                            <!-- Inline Audio Player -->
+                                            <div class="inline-audio-player" th:id="'audio-player-' + ${rec.id}" style="display:none; margin-top:10px;">
+                                                <audio controls style="width:100%; max-width:400px;">
+                                                    <source th:src="@{/api/meeting/recording/{id}/play(id=${rec.id})}" type="audio/webm">
+                                                    <source th:src="@{/api/meeting/recording/{id}/play(id=${rec.id})}" type="audio/mpeg">
+                                                    Your browser does not support the audio element.
+                                                </audio>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <!-- Transcript Column -->
+                                    <td class="col-transcript-data">
+                                        <div class="trans-info-block">
+                                            <div th:if="${recordingTranscripts != null and recordingTranscripts.containsKey(rec.id)}">
+                                                <div th:each="transcript : ${recordingTranscripts.get(rec.id)}">
+                                                    <span class="transcript-label"><i class="fas fa-file-alt me-1"></i>Transcript:</span>
+                                                    <p class="transcript-text-preview" th:text="${transcript.content}">Transcript content...</p>
+                                                </div>
+                                            </div>
+                                            <div th:unless="${recordingTranscripts != null and recordingTranscripts.containsKey(rec.id)}" class="no-transcript">
+                                                <i class="fas fa-file-circle-xmark"></i>
+                                                <span>No transcript available</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="empty-state" th:if="${studentRecordings == null or #lists.isEmpty(studentRecordings)}">
+                    <i class="fas fa-record-vinyl"></i>
+                    <h4>No Recordings Yet</h4>
+                    <p>Student recordings will appear here after meetings. All recordings are auto-saved.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transcripts Tab -->
+        <div class="tab-content" id="transcripts-tab">
+            <div class="transcripts-header">
+                <div class="transcripts-info">
+                    <i class="fas fa-info-circle"></i>
+                    <span>All recording transcripts are listed below. Transcripts are auto-generated from recordings.</span>
+                </div>
+                <div class="transcripts-actions">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search transcripts..." id="transcriptsSearch" onkeyup="searchTranscripts()">
+                    </div>
+                    <button class="btn-action btn-refresh" onclick="loadTranscripts()">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="transcripts-list" id="transcriptsList">
+                <div class="empty-state" id="transcriptsEmpty">
+                    <i class="fas fa-file-alt"></i>
+                    <h4>No Transcripts Yet</h4>
+                    <p>Transcripts will appear here after recordings are processed</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Change Password Modal -->
+    <div class="modal-overlay" id="changePasswordModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Change Password</h3>
+                <button class="modal-close" onclick="closeModal('changePasswordModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" class="form-input" id="currentPassword" placeholder="Enter current password">
+                        <button type="button" class="password-toggle" onclick="togglePassword('currentPassword', this)">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" class="form-input" id="newPassword" placeholder="Enter new password">
+                        <button type="button" class="password-toggle" onclick="togglePassword('newPassword', this)">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" class="form-input" id="confirmPassword" placeholder="Confirm new password">
+                        <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword', this)">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="passwordFeedback" class="alert-custom" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('changePasswordModal')">Cancel</button>
+                <button class="btn-primary" onclick="submitPasswordChange()">Change Password</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schedule Modal -->
+    <div class="modal-overlay" id="scheduleModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create Schedule</h3>
+                <button class="modal-close" onclick="closeModal('scheduleModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="schedule-form">
+                    <div class="form-group">
+                        <label>Schedule Text</label>
+                        <textarea class="form-input" id="scheduleText" placeholder="Enter schedule text to display to students"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>From Date</label>
+                            <input type="text" class="form-input" id="fromDate" placeholder="Select date">
+                        </div>
+                        <div class="form-group">
+                            <label>From Time</label>
+                            <input type="text" class="form-input" id="fromTime" placeholder="Select time">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>To Date</label>
+                            <input type="text" class="form-input" id="toDate" placeholder="Select date">
+                        </div>
+                        <div class="form-group">
+                            <label>To Time</label>
+                            <input type="text" class="form-input" id="toTime" placeholder="Select time">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('scheduleModal')">Cancel</button>
+                <button class="btn-primary" onclick="createSchedule()">Create Schedule</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Themes Modal -->
+    <div class="modal-overlay" id="themesModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Choose Theme</h3>
+                <button class="modal-close" onclick="closeModal('themesModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="themes-grid">
+                    <button class="theme-option active" data-theme="dark" onclick="applyTheme('dark')">
+                        <span class="theme-check"><i class="fas fa-check"></i></span>
+                        <span class="theme-emoji">🌙</span>
+                        <span class="theme-name">Dark</span>
+                    </button>
+                    <button class="theme-option" data-theme="light" onclick="applyTheme('light')">
+                        <span class="theme-check"><i class="fas fa-check"></i></span>
+                        <span class="theme-emoji">☀️</span>
+                        <span class="theme-name">Light</span>
+                    </button>
+                    <button class="theme-option" data-theme="ocean" onclick="applyTheme('ocean')">
+                        <span class="theme-check"><i class="fas fa-check"></i></span>
+                        <span class="theme-emoji">🌊</span>
+                        <span class="theme-name">Ocean</span>
+                    </button>
+                    <button class="theme-option" data-theme="forest" onclick="applyTheme('forest')">
+                        <span class="theme-check"><i class="fas fa-check"></i></span>
+                        <span class="theme-emoji">🌲</span>
+                        <span class="theme-name">Forest</span>
+                    </button>
+                    <button class="theme-option" data-theme="purple" onclick="applyTheme('purple')">
+                        <span class="theme-check"><i class="fas fa-check"></i></span>
+                        <span class="theme-emoji">💜</span>
+                        <span class="theme-name">Purple</span>
+                    </button>
+                    <button class="theme-option" data-theme="matte-black" onclick="applyTheme('matte-black')">
+                        <span class="theme-check"><i class="fas fa-check"></i></span>
+                        <span class="theme-emoji">🖤</span>
+                        <span class="theme-name">Matte Black</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Speak Detection Type Modal -->
+    <div class="modal-overlay" id="speakDetectionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Speak Detection Type</h3>
+                <button class="modal-close" onclick="closeModal('speakDetectionModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="detection-options">
+                    <div class="detection-option" data-type="grid" onclick="selectDetectionType('grid')">
+                        <div class="detection-icon">
+                            <i class="fas fa-th"></i>
+                        </div>
+                        <div class="detection-info">
+                            <h4>Grid View</h4>
+                            <p>Always show speaking students in the grid</p>
+                        </div>
+                        <div class="detection-check">
+                            <i class="fas fa-check"></i>
+                        </div>
+                    </div>
+                    <div class="detection-option selected" data-type="spotlight" onclick="selectDetectionType('spotlight')">
+                        <div class="detection-icon">
+                            <i class="fas fa-arrow-up"></i>
+                        </div>
+                        <div class="detection-info">
+                            <h4>Spotlight Row</h4>
+                            <p>Speaking students jump to a row above the grid</p>
+                            <div class="center-toggle">
+                                <span>Center</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="centerToggle" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="detection-check">
+                            <i class="fas fa-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zoom Control Modal -->
+    <div class="modal-overlay" id="zoomModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Zoom Control</h3>
+                <button class="modal-close" onclick="closeModal('zoomModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomOut()">
+                        <i class="fas fa-search-minus"></i>
+                        <span>Zoom Out</span>
+                    </button>
+                    <div class="zoom-value" id="zoomValue">90%</div>
+                    <button class="zoom-btn" onclick="zoomIn()">
+                        <i class="fas fa-search-plus"></i>
+                        <span>Zoom In</span>
+                    </button>
+                </div>
+                <button class="btn-reset-zoom" onclick="resetZoom()">
+                    <i class="fas fa-redo"></i>
+                    <span>Reset to 100%</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Student Credentials Modal -->
+    <div class="modal-overlay" id="shareCredentialsModal">
+        <div class="modal-content share-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-share-alt"></i> Share Student Credentials</h3>
+                <button class="modal-close" onclick="closeModal('shareCredentialsModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="share-credentials-info">
+                    <div class="credential-preview">
+                        <div class="credential-row">
+                            <span class="credential-label">Student Name:</span>
+                            <span class="credential-value" id="shareStudentName">-</span>
+                        </div>
+                        <div class="credential-row">
+                            <span class="credential-label">Teacher Name:</span>
+                            <span class="credential-value" th:text="${user.teacherName}">VK2</span>
+                        </div>
+                        <div class="credential-row">
+                            <span class="credential-label">Username:</span>
+                            <span class="credential-value" id="shareUsername">-</span>
+                        </div>
+                        <div class="credential-row">
+                            <span class="credential-label">Password:</span>
+                            <span class="credential-value" id="sharePassword" style="font-family:monospace;letter-spacing:1px;">
+                                <i class="fas fa-spinner fa-spin" style="color:var(--text-muted);"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="share-options">
+                    <button class="share-btn whatsapp" onclick="shareViaWhatsApp()">
+                        <i class="fab fa-whatsapp"></i>
+                        <span>WhatsApp</span>
+                    </button>
+                    <button class="share-btn telegram" onclick="shareViaTelegram()">
+                        <i class="fab fa-telegram"></i>
+                        <span>Telegram</span>
+                    </button>
+                    <button class="share-btn email" onclick="shareViaEmail()">
+                        <i class="fas fa-envelope"></i>
+                        <span>Email</span>
+                    </button>
+                    <button class="share-btn copy" onclick="copyCredentialsToClipboard()">
+                        <i class="fas fa-copy"></i>
+                        <span>Copy Text</span>
+                    </button>
+                </div>
+                <div id="shareFeedback" class="share-feedback" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Student Modal -->
+    <div class="modal-overlay" id="editStudentModal">
+        <div class="modal-content" style="max-width:440px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-edit me-2"></i>Edit Student</h3>
+                <button class="modal-close" onclick="closeModal('editStudentModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editStudentId">
+                <div class="form-group">
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:8px;">Display Name</label>
+                    <input type="text" class="form-input" id="editStudentName" placeholder="Student name">
+                </div>
+                <div class="form-group" style="margin-top:14px;">
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:8px;">
+                        <i class="fas fa-key me-1" style="color:var(--accent-light);"></i>New Password
+                        <span style="font-weight:400;color:var(--text-muted);"> (leave blank to keep unchanged)</span>
+                    </label>
+                    <div class="password-wrapper">
+                        <input type="password" class="form-input" id="editStudentPassword" placeholder="Enter new password">
+                        <button type="button" class="password-toggle" onclick="togglePassword('editStudentPassword', this)">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="editStudentFeedback" class="alert-custom" style="display:none;margin-top:12px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('editStudentModal')">Cancel</button>
+                <button class="btn-primary" onclick="submitEditStudent()"><i class="fas fa-save me-1"></i>Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" style="position:fixed;bottom:24px;right:24px;z-index:9999;display:none;
+         padding:14px 20px;border-radius:10px;font-size:14px;font-weight:600;color:white;
+         min-width:220px;max-width:360px;box-shadow:0 8px 24px rgba(0,0,0,0.4);
+         display:none;align-items:center;gap:10px;transition:all 0.3s ease;">
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        // Tab switching
+        function switchTab(tabName) {
+            // Update nav tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.dataset.tab === tabName) {
+                    tab.classList.add('active');
+                }
+            });
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + '-tab').classList.add('active');
+        }
+
+        // Settings dropdown
+        function toggleSettings() {
+            const dropdown = document.getElementById('settingsDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('settingsDropdown');
+            const settingsBtn = document.querySelector('.btn-settings-header');
+            if (!dropdown.contains(event.target) && !settingsBtn.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // Modal functions
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('show');
+            document.getElementById('settingsDropdown').classList.remove('show');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        // Close modal when clicking overlay
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('show');
+                }
+            });
+        });
+
+        // Password toggle
+        function togglePassword(inputId, button) {
+            const input = document.getElementById(inputId);
+            const icon = button.querySelector('i');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        // Password change
+        function submitPasswordChange() {
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const feedback = document.getElementById('passwordFeedback');
+
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                feedback.textContent = 'Please fill in all fields.';
+                feedback.className = 'alert-custom alert-danger';
+                feedback.style.display = 'flex';
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                feedback.textContent = 'New passwords do not match.';
+                feedback.className = 'alert-custom alert-danger';
+                feedback.style.display = 'flex';
+                return;
+            }
+
+            fetch('/api/user/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currentPassword, newPassword })
+            })
+            .then(response => {
+                if (response.ok) {
+                    feedback.textContent = 'Password changed successfully!';
+                    feedback.className = 'alert-custom alert-success';
+                    feedback.style.display = 'flex';
+                    setTimeout(() => closeModal('changePasswordModal'), 1500);
+                } else {
+                    throw new Error('Failed to change password');
+                }
+            })
+            .catch(error => {
+                feedback.textContent = error.message;
+                feedback.className = 'alert-custom alert-danger';
+                feedback.style.display = 'flex';
+            });
+        }
+
+        // Theme functions
+        function applyTheme(theme) {
+            localStorage.setItem('teacherTheme', theme);
+            document.querySelectorAll('.theme-option').forEach(opt => {
+                opt.classList.remove('active');
+                if (opt.dataset.theme === theme) {
+                    opt.classList.add('active');
+                }
+            });
+            closeModal('themesModal');
+        }
+
+        // Initialize theme
+        (function() {
+            const savedTheme = localStorage.getItem('teacherTheme') || 'dark';
+            document.querySelectorAll('.theme-option').forEach(opt => {
+                opt.classList.remove('active');
+                if (opt.dataset.theme === savedTheme) {
+                    opt.classList.add('active');
+                }
+            });
+        })();
+
+        // Speak detection type
+        function selectDetectionType(type) {
+            document.querySelectorAll('.detection-option').forEach(opt => {
+                opt.classList.remove('selected');
+                if (opt.dataset.type === type) {
+                    opt.classList.add('selected');
+                }
+            });
+        }
+
+        // Zoom controls
+        let zoomLevel = 90;
+
+        function zoomIn() {
+            if (zoomLevel < 200) {
+                zoomLevel += 10;
+                document.getElementById('zoomValue').textContent = zoomLevel + '%';
+            }
+        }
+
+        function zoomOut() {
+            if (zoomLevel > 50) {
+                zoomLevel -= 10;
+                document.getElementById('zoomValue').textContent = zoomLevel + '%';
+            }
+        }
+
+        function resetZoom() {
+            zoomLevel = 100;
+            document.getElementById('zoomValue').textContent = zoomLevel + '%';
+        }
+
+        // Recordings functions
+        function toggleRecordings(element) {
+            const wrapper = element.parentElement;
+            const items = wrapper.querySelector('.recording-items');
+
+            element.classList.toggle('expanded');
+            items.classList.toggle('show');
+        }
+
+        // View toggle for recordings/transcripts
+        function setRecordingsView(view) {
+            // Update button styles
+            document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+                if (btn.dataset.view === view) {
+                    btn.style.background = 'linear-gradient(135deg,#6366f1,#8b5cf6)';
+                    btn.style.color = 'white';
+                    btn.style.border = 'none';
+                    btn.classList.add('active');
+                } else {
+                    btn.style.background = 'rgba(99,102,241,0.15)';
+                    btn.style.color = '#818cf8';
+                    btn.style.border = '1px solid rgba(99,102,241,0.3)';
+                    btn.classList.remove('active');
+                }
+            });
+
+            // Expand all student recording wrappers so rows are visible
+            document.querySelectorAll('.student-recording-wrapper').forEach(wrapper => {
+                const row = wrapper.querySelector('.student-recording-row');
+                const items = wrapper.querySelector('.recording-items');
+                if (row && items) {
+                    row.classList.add('expanded');
+                    items.classList.add('show');
+                }
+            });
+
+            // Toggle the table header cells
+            document.querySelectorAll('.col-rec-header').forEach(th => {
+                th.style.display = (view === 'transcripts') ? 'none' : '';
+            });
+            document.querySelectorAll('.col-trans-header').forEach(th => {
+                th.style.display = (view === 'recordings') ? 'none' : '';
+            });
+
+            // Toggle the data cells in every row
+            document.querySelectorAll('.col-recording-data').forEach(td => {
+                td.style.display = (view === 'transcripts') ? 'none' : '';
+                td.style.width = (view === 'recordings') ? '100%' : '50%';
+            });
+            document.querySelectorAll('.col-transcript-data').forEach(td => {
+                td.style.display = (view === 'recordings') ? 'none' : '';
+                td.style.width = (view === 'transcripts') ? '100%' : '50%';
+            });
+        }
+
+        function playAudioInline(recordingId, button) {
+            const audioContainer = document.getElementById('audio-player-' + recordingId);
+
+            if (audioContainer) {
+                if (audioContainer.style.display === 'none') {
+                    audioContainer.style.display = 'block';
+                    button.innerHTML = '<i class="fas fa-pause"></i>';
+                    button.title = 'Hide Player';
+                } else {
+                    audioContainer.style.display = 'none';
+                    button.innerHTML = '<i class="fas fa-play"></i>';
+                    button.title = 'Play';
+                }
+            }
+        }
+
+        function refreshRecordings() {
+            location.reload();
+        }
+
+        function saveAllRecordings() {
+            alert('Downloading all recordings...');
+        }
+
+        function clearAllRecordings() {
+            if (confirm('Are you sure you want to delete all recordings?')) {
+                alert('Clearing all recordings...');
+            }
+        }
+
+        function deleteRecording(id) {
+            if (confirm('Are you sure you want to delete this recording and its transcript?')) {
+                fetch('/api/meeting/recording/' + id, { method: 'DELETE' })
+                    .then(response => {
+                        if (response.ok) {
+                            location.reload();
+                        } else {
+                            alert('Failed to delete recording');
+                        }
+                    });
+            }
+        }
+
+        function viewTranscript(recordingId) {
+            fetch('/api/transcript/recording/' + recordingId)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        let content = data.map(t => {
+                            return `Speaker: ${t.speakerName || 'Unknown'}\nTime: ${t.startTimeSeconds || 0}s - ${t.endTimeSeconds || 0}s\n\n${t.content}`;
+                        }).join('\n\n---\n\n');
+
+                        // Create modal
+                        const modal = document.createElement('div');
+                        modal.className = 'transcript-modal-overlay';
+                        modal.innerHTML = `
+                            <div class="transcript-modal-content">
+                                <div class="transcript-modal-header">
+                                    <h3><i class="fas fa-file-alt"></i> Transcript</h3>
+                                    <button onclick="this.closest('.transcript-modal-overlay').remove()"><i class="fas fa-times"></i></button>
+                                </div>
+                                <div class="transcript-modal-body">
+                                    <pre style="white-space: pre-wrap; font-family: inherit;">${content}</pre>
+                                </div>
+                                <div class="transcript-modal-footer">
+                                    <button onclick="copyToClipboard(\`${content.replace(/`/g, '\\`')}\`)"><i class="fas fa-copy"></i> Copy</button>
+                                    <button onclick="this.closest('.transcript-modal-overlay').remove()">Close</button>
+                                </div>
+                            </div>
+                        `;
+                        document.body.appendChild(modal);
+                    } else {
+                        alert('No transcript available for this recording');
+                    }
+                })
+                .catch(err => {
+                    alert('Error loading transcript: ' + err.message);
+                });
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Transcript copied to clipboard!');
+            });
+        }
+
+        // Meeting toggle
+        let meetingActive = false;
+        let meetingTimer = null;
+        let meetingMinutes = 0;
+        let currentMeetingId = null;
+        let currentMeetingCode = null;
+        let onlineCountTimer = null;
+
+        function toggleMeeting() {
+            const btn = document.getElementById('startMeetingBtn');
+
+            if (!meetingActive) {
+                // ── START MEETING via API ──
+                btn.disabled = true;
+                btn.innerHTML = '<span>Starting…</span>';
+
+                fetch('/api/host/quick-meeting/start', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            currentMeetingId   = data.meetingId;
+                            currentMeetingCode = data.meetingCode;
+                            meetingActive = true;
+
+                            btn.disabled = false;
+                            btn.innerHTML = '<span>End Meeting</span>';
+                            btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+
+                            // Start minute timer
+                            meetingTimer = setInterval(() => {
+                                meetingMinutes++;
+                                document.getElementById('meetingMinutes').textContent = meetingMinutes;
+                            }, 60000);
+
+                            // Poll online participant count every 4 s
+                            onlineCountTimer = setInterval(() => {
+                                if (currentMeetingCode) {
+                                    fetch('/api/meeting/' + currentMeetingCode + '/participants')
+                                        .then(r => r.json())
+                                        .then(list => {
+                                            document.getElementById('meetingOnline').textContent = list.length || 0;
+                                        })
+                                        .catch(() => {});
+                                }
+                            }, 4000);
+
+                            document.getElementById('meetingStatusInfo').innerHTML =
+                                '<span class="status-text">🔴 Live – Code: <strong>' + data.meetingCode + '</strong></span>';
+                            showToast('Meeting started! Students are being notified.', 'success');
+                        } else {
+                            btn.disabled = false;
+                            btn.innerHTML = '<span>Start Meeting</span>';
+                            showToast('Failed: ' + (data.message || 'Unknown error'), 'error');
+                        }
+                    })
+                    .catch(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>Start Meeting</span>';
+                        showToast('Network error. Please try again.', 'error');
+                    });
+
+            } else {
+                // ── END MEETING via API ──
+                if (!currentMeetingId) { resetMeetingUI(); return; }
+
+                btn.disabled = true;
+                btn.innerHTML = '<span>Ending…</span>';
+
+                fetch('/api/host/quick-meeting/end', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ meetingId: currentMeetingId })
+                })
+                .then(r => r.json())
+                .then(() => {
+                    resetMeetingUI();
+                    showToast('Meeting ended.', 'success');
+                })
+                .catch(() => { resetMeetingUI(); });
+            }
+        }
+
+        function resetMeetingUI() {
+            const btn = document.getElementById('startMeetingBtn');
+            btn.disabled = false;
+            btn.innerHTML = '<span>Start Meeting</span>';
+            btn.style.background = '';
+            meetingActive = false;
+            currentMeetingId = null;
+            currentMeetingCode = null;
+
+            clearInterval(meetingTimer);
+            clearInterval(onlineCountTimer);
+            meetingMinutes = 0;
+            document.getElementById('meetingMinutes').textContent = '0';
+            document.getElementById('meetingOnline').textContent = '0';
+            document.getElementById('meetingStatusInfo').innerHTML =
+                '<span class="status-text">Meeting not started</span>';
+        }
+
+        // Schedule functions handled by the full createSchedule below
+
+        // Initialize flatpickr for date/time pickers
+        document.addEventListener('DOMContentLoaded', function() {
+            flatpickr('#fromDate', { dateFormat: 'm/d/Y' });
+            flatpickr('#toDate', { dateFormat: 'm/d/Y' });
+            flatpickr('#fromTime', { enableTime: true, noCalendar: true, dateFormat: 'h:i K' });
+            flatpickr('#toTime', { enableTime: true, noCalendar: true, dateFormat: 'h:i K' });
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-overlay').forEach(modal => {
+                    modal.classList.remove('show');
+                });
+            }
+        });
+
+        // ===== Share Credentials Functions =====
+        let currentShareStudent = { name: '', username: '', password: '' };
+        const teacherNameForShare = '[[${user.teacherName}]]';
+
+        function shareStudentCredentials(studentName, username, password) {
+            currentShareStudent = { name: studentName, username: username, password: password || '' };
+            document.getElementById('shareStudentName').textContent = studentName;
+            document.getElementById('shareUsername').textContent = username;
+            document.getElementById('sharePassword').textContent = password || '(not available)';
+            document.getElementById('shareFeedback').style.display = 'none';
+            openModal('shareCredentialsModal');
+        }
+
+        function getShareMessage() {
+            const appUrl = window.location.origin;
+            return `🎓 *Student Login Credentials*
+
+📱 *App URL:* ${appUrl}/student/login
+
+👤 *Student Name:* ${currentShareStudent.name}
+🏫 *Teacher Name:* ${teacherNameForShare}
+👤 *Username:* ${currentShareStudent.username}
+🔑 *Password:* ${currentShareStudent.password}
+
+_Please login using the above credentials._`;
+        }
+
+        function shareViaWhatsApp() {
+            const message = encodeURIComponent(getShareMessage());
+            window.open('https://wa.me/?text=' + message, '_blank');
+            showShareFeedback('Opening WhatsApp...', 'success');
+        }
+
+        function shareViaTelegram() {
+            const message = encodeURIComponent(getShareMessage());
+            window.open('https://t.me/share/url?url=' + encodeURIComponent(window.location.origin) + '&text=' + message, '_blank');
+            showShareFeedback('Opening Telegram...', 'success');
+        }
+
+        function shareViaEmail() {
+            const subject = encodeURIComponent('Your Student Login Credentials');
+            const body = encodeURIComponent(getShareMessage().replace(/\*/g, '').replace(/\_/g, ''));
+            window.open('mailto:?subject=' + subject + '&body=' + body, '_blank');
+            showShareFeedback('Opening Email app...', 'success');
+        }
+
+        function copyCredentialsToClipboard() {
+            const text = getShareMessage().replace(/\*/g, '').replace(/\_/g, '');
+            navigator.clipboard.writeText(text).then(() => {
+                showShareFeedback('Credentials copied to clipboard!', 'success');
+            }).catch(err => {
+                showShareFeedback('Failed to copy. Please try again.', 'error');
+            });
+        }
+
+        function showShareFeedback(message, type) {
+            const feedback = document.getElementById('shareFeedback');
+            feedback.textContent = message;
+            feedback.className = 'share-feedback ' + type;
+            feedback.style.display = 'block';
+            setTimeout(() => { feedback.style.display = 'none'; }, 3000);
+        }
+
+        // ===== Toast Notification =====
+        function showToast(message, type) {
+            const toast = document.getElementById('toastNotification');
+            const colors = {
+                success: 'linear-gradient(135deg,#22c55e,#16a34a)',
+                error:   'linear-gradient(135deg,#ef4444,#dc2626)',
+                info:    'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                warning: 'linear-gradient(135deg,#f59e0b,#d97706)'
+            };
+            const icons = { success: 'fa-check-circle', error: 'fa-times-circle', info: 'fa-info-circle', warning: 'fa-exclamation-triangle' };
+            toast.style.background = colors[type] || colors.info;
+            toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${message}</span>`;
+            toast.style.display = 'flex';
+            clearTimeout(toast._timeout);
+            toast._timeout = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+        }
+
+        // ===== Student Table Functions =====
+        function filterStudentTable() {
+            const query = (document.getElementById('studentTableSearch')?.value || '').toLowerCase();
+            document.querySelectorAll('.student-row').forEach(row => {
+                const name = (row.getAttribute('data-name') || '').toLowerCase();
+                const username = (row.getAttribute('data-username') || '').toLowerCase();
+                row.style.display = (name.includes(query) || username.includes(query)) ? '' : 'none';
+            });
+        }
+
+        // ===== Data-attribute wrappers for student actions =====
+        function doShare(btn) {
+            const id = btn.dataset.id;
+            const name = btn.dataset.name;
+            const username = btn.dataset.username;
+            // Show modal immediately with a loading spinner for password
+            shareStudentCredentials(name, username, null);
+            document.getElementById('sharePassword').innerHTML =
+                '<i class="fas fa-spinner fa-spin" style="color:var(--text-muted);"></i>';
+            // Fetch actual credentials from server
+            fetch('/api/host/students/' + id + '/credentials')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        currentShareStudent.password = d.password;
+                        document.getElementById('sharePassword').textContent = d.password;
+                    } else {
+                        document.getElementById('sharePassword').textContent = '(unavailable)';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('sharePassword').textContent = '(network error)';
+                });
+        }
+
+        function doCall(btn) {
+            const id = btn.dataset.id;
+            const name = btn.dataset.name;
+            if (!confirm('Send call notification to ' + name + '?')) return;
+            fetch('/api/host/students/' + id + '/call', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => showToast(d.message || 'Notification sent to ' + name, d.success ? 'success' : 'error'))
+                .catch(() => showToast('Network error. Try again.', 'error'));
+        }
+
+        function doEdit(btn) {
+            document.getElementById('editStudentId').value = btn.dataset.id;
+            document.getElementById('editStudentName').value = btn.dataset.name;
+            document.getElementById('editStudentPassword').value = '';
+            document.getElementById('editStudentFeedback').style.display = 'none';
+            openModal('editStudentModal');
+        }
+
+        function submitEditStudent() {
+            const id = document.getElementById('editStudentId').value;
+            const name = document.getElementById('editStudentName').value.trim();
+            const newPassword = document.getElementById('editStudentPassword').value.trim();
+            const feedback = document.getElementById('editStudentFeedback');
+            if (!name) {
+                feedback.textContent = 'Name cannot be empty.';
+                feedback.className = 'alert-custom alert-danger';
+                feedback.style.display = 'flex';
+                return;
+            }
+            const payload = { displayName: name };
+            if (newPassword) payload.newPassword = newPassword;
+            fetch('/api/host/students/' + id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    closeModal('editStudentModal');
+                    showToast(newPassword ? 'Student updated & password changed!' : 'Student updated successfully!', 'success');
+                    setTimeout(() => location.reload(), 1200);
+                } else {
+                    feedback.textContent = d.message || 'Update failed.';
+                    feedback.className = 'alert-custom alert-danger';
+                    feedback.style.display = 'flex';
+                }
+            })
+            .catch(() => showToast('Network error. Try again.', 'error'));
+        }
+
+        function doBlock(btn) {
+            const id = btn.dataset.id;
+            const name = btn.dataset.name;
+            const isBlock = !btn.classList.contains('btn-unblock');
+            const action = isBlock ? 'block' : 'unblock';
+            const msg = isBlock ? 'Block ' + name + '? They will not be able to login.' : 'Unblock ' + name + '?';
+            if (!confirm(msg)) return;
+            fetch('/api/host/students/' + id + '/' + action, { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    showToast(d.message || (isBlock ? 'Student blocked' : 'Student unblocked'), d.success ? 'success' : 'error');
+                    if (d.success) setTimeout(() => location.reload(), 1200);
+                })
+                .catch(() => showToast('Network error. Try again.', 'error'));
+        }
+
+        function doMute(btn) {
+            const id = btn.dataset.id;
+            const name = btn.dataset.name;
+            fetch('/api/host/students/' + id + '/mute', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => showToast(d.message || name + ' muted', d.success ? 'success' : 'warning'))
+                .catch(() => showToast('Network error. Try again.', 'error'));
+        }
+
+        function doDelete(btn) {
+            const id = btn.dataset.id;
+            const name = btn.dataset.name;
+            if (!confirm('Delete student "' + name + '"? This cannot be undone!')) return;
+            fetch('/api/host/students/' + id, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(d => {
+                    showToast(d.message || 'Student deleted', d.success ? 'success' : 'error');
+                    if (d.success) {
+                        const row = btn.closest('.student-row');
+                        if (row) row.style.opacity = '0';
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                })
+                .catch(() => showToast('Network error. Try again.', 'error'));
+        }
+
+        function editStudent(id, name, username, email) {
+            document.getElementById('editStudentId').value = id;
+            document.getElementById('editStudentName').value = name;
+            document.getElementById('editStudentFeedback').style.display = 'none';
+            openModal('editStudentModal');
+        }
+
+        // ===== Audio Control Functions =====
+        let isSpeakerMuted = false;
+        let isMicActive = false;
+        let isBroadcasting = false;
+
+        function toggleSpeaker() {
+            const btn = document.getElementById('speakerBtn');
+            const icon = btn.querySelector('i');
+
+            isSpeakerMuted = !isSpeakerMuted;
+
+            if (isSpeakerMuted) {
+                icon.className = 'fas fa-volume-mute';
+                btn.classList.add('muted');
+            } else {
+                icon.className = 'fas fa-volume-up';
+                btn.classList.remove('muted');
+            }
+        }
+
+        function toggleMic() {
+            const btn = document.getElementById('micBtn');
+            const icon = btn.querySelector('i');
+
+            isMicActive = !isMicActive;
+
+            if (isMicActive) {
+                icon.className = 'fas fa-microphone';
+                btn.classList.add('active');
+                // Start recording/broadcasting
+                startAudioRecording();
+            } else {
+                icon.className = 'fas fa-microphone-slash';
+                btn.classList.remove('active');
+                // Stop recording
+                stopAudioRecording();
+            }
+        }
+
+        function startBroadcast() {
+            const btn = document.getElementById('broadcastBtn');
+            isBroadcasting = !isBroadcasting;
+
+            if (isBroadcasting) {
+                btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+                document.getElementById('meetingStatusInfo').innerHTML = '<span class="status-text">🔴 Broadcasting to students...</span>';
+            } else {
+                btn.style.background = 'linear-gradient(135deg, #6366f1, #8b5cf6)';
+                document.getElementById('meetingStatusInfo').innerHTML = '<span class="status-text">Meeting active</span>';
+            }
+        }
+
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        function startAudioRecording() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = event => {
+                        audioChunks.push(event.data);
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        // Send to server if needed
+                        console.log('Recording stopped, blob size:', audioBlob.size);
+                    };
+
+                    mediaRecorder.start();
+                    console.log('Recording started');
+                })
+                .catch(err => {
+                    console.error('Error accessing microphone:', err);
+                    alert('Could not access microphone. Please check permissions.');
+                });
+        }
+
+        function stopAudioRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+        }
+
+
+        // ===== Transcripts Functions =====
+        let allTranscripts = [];
+
+        function loadTranscripts() {
+            fetch('/api/host/transcripts')
+                .then(response => response.json())
+                .then(data => {
+                    allTranscripts = data;
+                    renderTranscripts(data);
+                })
+                .catch(err => {
+                    console.error('Error loading transcripts:', err);
+                });
+        }
+
+        function renderTranscripts(transcripts) {
+            const container = document.getElementById('transcriptsList');
+            const emptyState = document.getElementById('transcriptsEmpty');
+
+            if (!transcripts || transcripts.length === 0) {
+                container.innerHTML = '';
+                container.appendChild(emptyState);
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            // Group transcripts by student
+            const grouped = {};
+            transcripts.forEach(t => {
+                const student = t.studentName || 'Unknown';
+                if (!grouped[student]) grouped[student] = [];
+                grouped[student].push(t);
+            });
+
+            let html = '';
+            for (const [student, items] of Object.entries(grouped)) {
+                html += `
+                    <div class="transcript-student-group">
+                        <div class="transcript-student-header" onclick="toggleTranscriptGroup(this)">
+                            <span class="student-name">${student}</span>
+                            <span class="transcript-count">${items.length} transcript(s)</span>
+                            <i class="fas fa-chevron-right expand-icon"></i>
+                        </div>
+                        <div class="transcript-items">
+                            ${items.map(t => `
+                                <div class="transcript-item" data-id="${t.id}">
+                                    <div class="transcript-meta">
+                                        <span class="speaker"><i class="fas fa-user"></i> ${t.speakerName || 'Unknown'}</span>
+                                        <span class="time"><i class="fas fa-clock"></i> ${t.createdAt ? new Date(t.createdAt).toLocaleString() : 'N/A'}</span>
+                                        ${t.startTime ? `<span class="duration"><i class="fas fa-stopwatch"></i> ${t.startTime}s - ${t.endTime || '?'}s</span>` : ''}
+                                    </div>
+                                    <div class="transcript-content">${t.content}</div>
+                                    <div class="transcript-actions">
+                                        <button class="btn-transcript-action" onclick="viewTranscript(${t.id})"><i class="fas fa-eye"></i></button>
+                                        <button class="btn-transcript-action" onclick="copyTranscript('${t.content.replace(/'/g, "\\'")}')"><i class="fas fa-copy"></i></button>
+                                        <button class="btn-transcript-action delete" onclick="deleteTranscript(${t.id})"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function toggleTranscriptGroup(element) {
+            const group = element.parentElement;
+            const items = group.querySelector('.transcript-items');
+            element.classList.toggle('expanded');
+            items.classList.toggle('show');
+        }
+
+        function searchTranscripts() {
+            const query = document.getElementById('transcriptsSearch').value.toLowerCase();
+            const filtered = allTranscripts.filter(t =>
+                (t.content && t.content.toLowerCase().includes(query)) ||
+                (t.speakerName && t.speakerName.toLowerCase().includes(query)) ||
+                (t.studentName && t.studentName.toLowerCase().includes(query))
+            );
+            renderTranscripts(filtered);
+        }
+
+        function viewTranscript(id) {
+            const transcript = allTranscripts.find(t => t.id === id);
+            if (transcript) {
+                alert('Transcript:\n\n' + transcript.content);
+            }
+        }
+
+        function copyTranscript(content) {
+            navigator.clipboard.writeText(content).then(() => {
+                alert('Transcript copied to clipboard!');
+            }).catch(err => {
+                console.error('Copy failed:', err);
+            });
+        }
+
+        function deleteTranscript(id) {
+            if (confirm('Delete this transcript?')) {
+                fetch('/api/host/transcripts/' + id, { method: 'DELETE' })
+                    .then(response => {
+                        if (response.ok) {
+                            loadTranscripts();
+                        } else {
+                            alert('Failed to delete transcript');
+                        }
+                    })
+                    .catch(err => alert('Error: ' + err));
+            }
+        }
+
+        // Load transcripts when tab is clicked
+        document.addEventListener('DOMContentLoaded', function() {
+            const transcriptsTab = document.querySelector('[data-tab="transcripts"]');
+            if (transcriptsTab) {
+                transcriptsTab.addEventListener('click', loadTranscripts);
+            }
+        });
+
+        // ===== Schedule Functions =====
+        function createSchedule() {
+            const text = document.getElementById('scheduleText').value;
+            const fromDate = document.getElementById('fromDate').value;
+            const fromTime = document.getElementById('fromTime').value;
+            const toDate = document.getElementById('toDate').value;
+            const toTime = document.getElementById('toTime').value;
+
+            if (!text || !fromDate || !fromTime) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            // Convert to ISO format
+            const startTime = new Date(fromDate + ' ' + fromTime).toISOString().slice(0, 19);
+            const endTime = toDate && toTime ? new Date(toDate + ' ' + toTime).toISOString().slice(0, 19) : null;
+
+            fetch('/api/host/schedules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: text,
+                    description: text,
+                    startTime: startTime,
+                    endTime: endTime
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Schedule created and notifications sent to all students!');
+                    closeModal('scheduleModal');
+                    document.getElementById('scheduleText').value = '';
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(err => alert('Error: ' + err));
+        }
+    </script>
+
+    <style>
+        /* 2-Column Recordings Table */
+        .recordings-table-2col {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .recordings-table-2col th {
+            background: rgba(99, 102, 241, 0.1);
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-light);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .col-rec-header {
+            width: 50%;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .col-trans-header {
+            width: 50%;
+        }
+
+        .recording-row-2col {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .recording-row-2col:last-child {
+            border-bottom: none;
+        }
+
+        .col-recording-data {
+            width: 50%;
+            padding: 16px;
+            vertical-align: top;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .col-transcript-data {
+            width: 50%;
+            padding: 16px;
+            vertical-align: top;
+        }
+
+        .rec-info-block {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .trans-info-block {
+            min-height: 60px;
+        }
+
+        .no-transcript {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-muted);
+            font-style: italic;
+            font-size: 13px;
+        }
+
+        .inline-audio-player audio {
+            border-radius: 8px;
+            background: var(--bg-card);
+        }
+
+        /* Transcripts Styles */
+        .transcripts-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .transcripts-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .transcripts-info i {
+            color: #06b6d4;
+        }
+
+        .transcripts-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .transcript-student-group {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        .transcript-student-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .transcript-student-header:hover {
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        .transcript-student-header .student-name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .transcript-student-header .transcript-count {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .transcript-student-header .expand-icon {
+            color: var(--text-muted);
+            transition: transform 0.2s ease;
+        }
+
+        .transcript-student-header.expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+
+        .transcript-items {
+            display: none;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .transcript-items.show {
+            display: block;
+        }
+
+        .transcript-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+        }
+
+        .transcript-item:last-child {
+            border-bottom: none;
+        }
+
+        .transcript-meta {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .transcript-meta i {
+            margin-right: 4px;
+        }
+
+        .transcript-content {
+            background: rgba(15, 23, 42, 0.5);
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .transcript-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-transcript-action {
+            padding: 6px 10px;
+            background: var(--bg-card-hover);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-transcript-action:hover {
+            background: rgba(6, 182, 212, 0.1);
+            color: #06b6d4;
+            border-color: #06b6d4;
+        }
+
+        .btn-transcript-action.delete:hover {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border-color: #ef4444;
+        }
+
+        /* Share Modal Styles */
+        .share-modal {
+            max-width: 480px;
+        }
+
+        .share-credentials-info {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .credential-preview {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .credential-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .credential-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            min-width: 110px;
+        }
+
+        .credential-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .password-note {
+            font-size: 11px;
+            color: #f59e0b;
+            margin-left: 8px;
+        }
+
+        .share-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .share-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .share-btn i {
+            font-size: 18px;
+        }
+
+        .share-btn.whatsapp {
+            background: linear-gradient(135deg, #25D366, #128C7E);
+            color: white;
+        }
+
+        .share-btn.whatsapp:hover {
+            background: linear-gradient(135deg, #128C7E, #075E54);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+        }
+
+        .share-btn.telegram {
+            background: linear-gradient(135deg, #0088cc, #0077b5);
+            color: white;
+        }
+
+        .share-btn.telegram:hover {
+            background: linear-gradient(135deg, #0077b5, #006699);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
+        }
+
+        .share-btn.email {
+            background: linear-gradient(135deg, #EA4335, #c5221f);
+            color: white;
+        }
+
+        .share-btn.email:hover {
+            background: linear-gradient(135deg, #c5221f, #a21b17);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(234, 67, 53, 0.3);
+        }
+
+        .share-btn.copy {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white;
+        }
+
+        .share-btn.copy:hover {
+            background: linear-gradient(135deg, #4f46e5, #4338ca);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .share-feedback {
+            margin-top: 16px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .share-feedback.success {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .share-feedback.error {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        /* Share button in student actions */
+        .btn-share {
+            background: linear-gradient(135deg, #06b6d4, #0891b2) !important;
+            color: white !important;
+        }
+
+        .btn-share:hover {
+            background: linear-gradient(135deg, #0891b2, #0e7490) !important;
+            transform: translateY(-1px);
+        }
+    </style>
+</body>
+</html>
+

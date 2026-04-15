@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0f172a;
+            color: #f1f5f9;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .error-card {
+            background: #1e293b;
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 20px;
+            padding: 48px 40px;
+            text-align: center;
+            max-width: 480px;
+            width: 90%;
+        }
+        .error-code {
+            font-size: 80px;
+            font-weight: 900;
+            color: #4f46e5;
+            line-height: 1;
+            margin-bottom: 16px;
+        }
+        .error-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .error-message {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+        .btn-home {
+            display: inline-block;
+            padding: 12px 28px;
+            background: #4f46e5;
+            color: white;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .btn-home:hover { background: #4338ca; }
+    </style>
+</head>
+<body>
+    <div class="error-card">
+        <div class="error-code" th:text="${statusCode ?: 500}">500</div>
+        <div class="error-title">Something went wrong</div>
+        <div class="error-message" th:text="${errorMessage ?: 'An unexpected error occurred. Please try again.'}">
+            An unexpected error occurred.
+        </div>
+        <a href="/" class="btn-home">Go Home</a>
+    </div>
+</body>
+</html>
+
