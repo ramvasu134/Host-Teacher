@@ -111,70 +111,58 @@
     <div class="sr-gradient-bar"></div>
 
     <!-- ===== MAIN CONTENT ===== -->
-    <div class="sr-main">
-        <!-- Teacher Logo -->
-        <div class="sr-logo-container">
-            <div class="sr-logo-ring"></div>
-            <div class="sr-logo-inner">
-                <!-- Show teacher's custom logo if available, otherwise default logo -->
+    <div class="sr-main" id="srCenterStage">
+
+        <!-- Teacher logo + connection status (top of stage) -->
+        <div class="sr-teacher-info" id="srTeacherInfo">
+            <div class="sr-teacher-logo-wrap">
                 <img th:if="${teacher.teacherLogo != null and !teacher.teacherLogo.isEmpty()}"
-                     th:src="${teacher.teacherLogo}"
-                     alt="Teacher Logo"
-                     class="sr-teacher-logo-img"/>
-                <img th:unless="${teacher.teacherLogo != null and !teacher.teacherLogo.isEmpty()}"
-                     th:src="@{/images/default-teacher-logo.svg}"
-                     alt="Default Logo"
-                     class="sr-teacher-logo-img"/>
+                     th:src="${teacher.teacherLogo}" alt="Teacher" class="sr-teacher-mini-img"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
+                <!-- Initials fallback (always shown when no logo, or on img error) -->
+                <div class="sr-teacher-mini-initials"
+                     th:style="${teacher.teacherLogo != null and !teacher.teacherLogo.isEmpty()} ? 'display:none' : 'display:flex'"
+                     th:text="${teacher.displayName != null ? #strings.substring(teacher.displayName, 0, #strings.length(teacher.displayName) > 1 ? 2 : 1).toUpperCase() : 'T'}">VK</div>
+            </div>
+            <div class="sr-teacher-label">
+                <span class="sr-teacher-name" th:text="${teacher.displayName}">Teacher</span>
+                <!-- Teacher connected / waiting shown by JS -->
+                <span class="sr-teacher-conn-status" id="srTeacherConnStatus">
+                    <span class="sr-conn-dot offline"></span>
+                    <span id="srTeacherConnText">Waiting for teacher…</span>
+                </span>
             </div>
         </div>
 
-        <!-- Teacher connected indicator (shown by JS when audio stream arrives) -->
-        <div id="teacherConnected"
-             style="display:none; flex-direction:column; align-items:center; gap:10px; margin-top:8px;">
-            <div style="width:56px; height:56px; border-radius:50%;
-                        background:rgba(34,197,94,.15); border:2px solid #22c55e;
-                        display:flex; align-items:center; justify-content:center;
-                        animation:srAudioPulse 1.4s ease-in-out infinite;">
-                <i class="fas fa-volume-up" style="color:#22c55e; font-size:22px;"></i>
-            </div>
-            <span class="sr-waiting-text" style="color:#22c55e; font-size:16px;">Teacher Connected</span>
-            <span style="color:#8b949e; font-size:13px;">🎙️ Listening…</span>
+        <!-- BIG MIC BUTTON — also entire stage is clickable -->
+        <div class="sr-mic-stage">
+            <!-- outer pulse rings -->
+            <div class="sr-mic-pulse-ring sr-mic-ring-1" id="srMicRing1"></div>
+            <div class="sr-mic-pulse-ring sr-mic-ring-2" id="srMicRing2"></div>
+            <!-- the button itself -->
+            <button class="sr-big-mic-btn" id="btnMic" onclick="srToggleMic()" title="Toggle Mic">
+                <i class="fas fa-microphone" id="srMicIcon"></i>
+            </button>
         </div>
 
-        <!-- Autoplay-blocked fallback — shown by JS if browser blocks audio autoplay -->
-        <button id="unmuteBtn" onclick="resumeHostAudio()"
-                style="display:none; align-items:center; gap:8px;
-                       background:linear-gradient(135deg,#6366f1,#8b5cf6);
-                       color:#fff; border:none; border-radius:12px;
-                       padding:14px 28px; font-size:15px; font-weight:600;
-                       cursor:pointer; margin-top:12px; box-shadow:0 4px 20px rgba(99,102,241,.35);">
-            <i class="fas fa-volume-up"></i>
-            Click to Hear Audio
+        <!-- Status hint text -->
+        <div class="sr-mic-hint" id="srMicHint">
+            <span id="srMicHintText">Tap anywhere or the button to speak</span>
+        </div>
+
+        <!-- Autoplay blocked fallback -->
+        <button id="unmuteBtn" onclick="resumeHostAudio()" class="sr-unmute-fallback" style="display:none;">
+            <i class="fas fa-volume-up"></i> Click to Hear Teacher Audio
         </button>
-
-        <!-- Waiting message (hidden when teacher is connected) -->
-        <div class="sr-waiting-card" id="waitingCard">
-            <span class="sr-waiting-text">Wait For Teacher To Join</span>
-        </div>
     </div>
-
-    <!-- Pulse animation keyframes -->
-    <style>
-        @keyframes srAudioPulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,.4); }
-            50%       { box-shadow: 0 0 0 14px rgba(34,197,94,0); }
-        }
-    </style>
 
     <!-- ===== BOTTOM CONTROL BAR ===== -->
     <footer class="sr-controls">
         <button class="sr-control-btn" id="btnSpeaker" onclick="srToggleSpeaker()" title="Speaker">
             <i class="fas fa-volume-up"></i>
         </button>
-        <div></div>
-        <button class="sr-control-btn sr-control-btn-green" id="btnMic" onclick="srToggleMic()" title="Microphone">
-            <i class="fas fa-microphone"></i>
-        </button>
+        <span class="sr-footer-hint">Tap screen to toggle mic</span>
+        <div style="width:48px;"></div><!-- spacer for alignment -->
     </footer>
 
     <!-- ===== CHAT DIALOG (centered overlay) ===== -->
@@ -285,11 +273,59 @@
          th:data-meeting-code="${meetingCode}"
          th:data-user-id="${user.id}"
          th:data-user-name="${user.displayName}"
+         th:data-recording-enabled="${meeting.recordingEnabled}"
          style="display:none;"></div>
+
+    <!-- ===== SAVE RECORDING DIALOG ===== -->
+    <div class="sr-modal-overlay" id="srSaveRecOverlay"></div>
+    <div class="sr-pwd-modal" id="srSaveRecModal" style="max-width:420px;">
+        <div class="sr-pwd-header">
+            <span class="sr-pwd-title"><i class="fas fa-microphone" style="color:#22c55e;margin-right:8px;"></i>Recording Ready</span>
+        </div>
+        <div class="sr-pwd-body" style="text-align:center; padding: 20px 24px;">
+            <div style="font-size:48px; margin-bottom:12px;">🎙️</div>
+            <p id="srSaveRecInfo" style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Your audio clip is ready.</p>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button id="srSaveRecDownloadBtn"
+                    style="padding:12px 20px; background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                           color:#fff; border:none; border-radius:10px; font-size:14px;
+                           font-weight:600; cursor:pointer; display:flex; align-items:center;
+                           justify-content:center; gap:8px;">
+                    <i class="fas fa-download"></i> Save to My Device
+                </button>
+                <button id="srSaveRecUploadBtn"
+                    style="padding:12px 20px; background:rgba(34,197,94,.15);
+                           color:#22c55e; border:1px solid rgba(34,197,94,.35);
+                           border-radius:10px; font-size:14px; font-weight:600;
+                           cursor:pointer; display:flex; align-items:center;
+                           justify-content:center; gap:8px;">
+                    <i class="fas fa-cloud-upload-alt"></i> Save to Server (Teacher can play)
+                </button>
+                <button id="srSaveRecBothBtn"
+                    style="padding:12px 20px; background:rgba(99,102,241,.15);
+                           color:#818cf8; border:1px solid rgba(99,102,241,.3);
+                           border-radius:10px; font-size:14px; font-weight:600;
+                           cursor:pointer; display:flex; align-items:center;
+                           justify-content:center; gap:8px;">
+                    <i class="fas fa-check-double"></i> Save Both
+                </button>
+                <button onclick="srDiscardRecording()"
+                    style="padding:10px 20px; background:none;
+                           color:#64748b; border:1px solid rgba(100,116,139,.25);
+                           border-radius:10px; font-size:13px; cursor:pointer;">
+                    <i class="fas fa-trash-alt"></i> Discard
+                </button>
+            </div>
+        </div>
+        <div id="srSaveRecStatus" style="padding:0 24px 16px; font-size:13px; color:#94a3b8; text-align:center; display:none;"></div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <script th:src="@{/js/student-room.js}"></script>
 </body>
 </html>
+
+
+
 

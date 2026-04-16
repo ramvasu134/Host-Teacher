@@ -9,6 +9,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -48,6 +49,31 @@ public class MeetingService {
 
     public List<Meeting> findLiveMeetings() {
         return meetingRepository.findByStatus(MeetingStatus.LIVE);
+    }
+
+    /**
+     * On every application startup, reset any meetings left in LIVE state
+     * back to SCHEDULED. This handles the case where the server was stopped
+     * without properly ending active meetings — prevents students from
+     * entering stale "ghost" live sessions.
+     */
+    @PostConstruct
+    @Transactional
+    public void resetStaleLiveMeetings() {
+        List<Meeting> staleLive = meetingRepository.findByStatus(MeetingStatus.LIVE);
+        if (!staleLive.isEmpty()) {
+            LocalDateTime now = LocalDateTime.now();
+            for (Meeting m : staleLive) {
+                m.setStatus(MeetingStatus.SCHEDULED);
+                // Mark all active participants as left so the room appears empty
+                List<com.host.studen.model.MeetingParticipant> active =
+                    participantRepository.findByMeetingAndLeftAtIsNull(m);
+                active.forEach(p -> p.setLeftAt(now));
+                participantRepository.saveAll(active);
+            }
+            meetingRepository.saveAll(staleLive);
+            System.out.println("[Startup] Reset " + staleLive.size() + " stale LIVE meeting(s) to SCHEDULED.");
+        }
     }
 
     public List<Meeting> findAllMeetingsForUser(User user) {
@@ -128,6 +154,27 @@ public class MeetingService {
         }
 
         return meetingRepository.save(meeting);
+    }
+
+    /**
+     * Auto-end a meeting by host ID — used when teacher disconnects (browser close).
+     * Skips re-loading the host User entity to avoid detached entity issues.
+     */
+    @Transactional
+    public void endMeetingByHostId(Long meetingId, Long hostId) {
+        Meeting meeting = meetingRepository.findById(meetingId).orElse(null);
+        if (meeting == null) return;
+        if (!meeting.getHost().getId().equals(hostId)) return;
+        if (meeting.getStatus() == MeetingStatus.ENDED) return;
+
+        meeting.setStatus(MeetingStatus.ENDED);
+        meeting.setEndedAt(LocalDateTime.now());
+
+        List<MeetingParticipant> active = participantRepository.findByMeetingAndLeftAtIsNull(meeting);
+        LocalDateTime now = LocalDateTime.now();
+        active.forEach(p -> p.setLeftAt(now));
+        participantRepository.saveAll(active);
+        meetingRepository.save(meeting);
     }
 
     @Transactional

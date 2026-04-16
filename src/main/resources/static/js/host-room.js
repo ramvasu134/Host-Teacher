@@ -22,15 +22,30 @@ let peerConnections = {};   // studentId -> RTCPeerConnection
 let pendingCandidates = {}; // peerId → queued ICE candidates before remoteDesc is set
 let isMicEnabled   = true;
 let isRecording    = false;
-let currentTab     = 'participants'; // 'participants' | 'chat'
+let currentTab     = 'participants'; // 'participants' | 'chat' | 'recordings'
 let chatUnread     = 0;
+let recordingUnread = 0;
 let meetingStartTime = Date.now();
 
 // ===== Boot =====
 document.addEventListener('DOMContentLoaded', function () {
+    // Ensure initial tab state is correct
+    switchTab('participants');
     initAudio();
     startMeetingTimer();
+    // Seed student strip from server-rendered participant list (students already in room)
+    _seedStudentStripFromDOM();
 });
+
+// Populate student strip from server-rendered participants on page load
+function _seedStudentStripFromDOM() {
+    const existing = document.querySelectorAll('#participantsList .participant-item.student');
+    existing.forEach(function(item) {
+        const uid  = item.dataset.userId;
+        const name = (item.querySelector('.participant-name') || {}).textContent || 'Student';
+        if (uid) _addStudentChip(uid, name.trim());
+    });
+}
 
 // ===== Audio — get mic FIRST, then connect WebSocket =====
 function initAudio() {
@@ -86,6 +101,13 @@ function connectWebSocket() {
         stompClient.subscribe('/topic/control/' + MEETING_CODE, function (m) {
             handleControlEvent(JSON.parse(m.body));
         });
+
+        // ── Recording saved events (auto-saved student clips) ──
+        if (RECORDING_ENABLED) {
+            stompClient.subscribe('/topic/recording/' + MEETING_CODE, function (m) {
+                handleRecordingEvent(JSON.parse(m.body));
+            });
+        }
 
         // Announce host presence — students already in the room will
         // receive this and call createOffer(hostId) automatically
@@ -172,7 +194,7 @@ async function handleOffer(sid, data) {
     const pc = getOrCreatePC(sid);
     try {
         await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: data.sdp }));
-        await drainCandidates(sid);          // flush any queued ICE candidates
+        await drainCandidates(sid);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         sendSignal({ type: 'answer', sdp: answer.sdp, targetId: sid });
@@ -184,7 +206,7 @@ async function handleAnswer(sid, data) {
     if (pc) {
         try {
             await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: data.sdp }));
-            await drainCandidates(sid);      // flush any queued ICE candidates
+            await drainCandidates(sid);
         } catch (e) { console.error('handleAnswer error:', e); }
     }
 }
@@ -192,7 +214,6 @@ async function handleAnswer(sid, data) {
 async function handleIce(sid, data) {
     const pc = peerConnections[sid];
     if (!pc || !data.candidate) return;
-    // If remote description not set yet, queue to apply later
     if (pc.remoteDescription && pc.remoteDescription.type) {
         try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e) {}
     } else {
@@ -237,6 +258,54 @@ function handleParticipantEvent(data) {
 
 function handleControlEvent(data) {
     // future use
+}
+
+// ===== Recording Events from Students =====
+function handleRecordingEvent(data) {
+    if (!data || !data.success) return;
+
+    // Add to recordings list
+    addRecordingToList(data);
+
+    // Badge on Recordings tab
+    if (currentTab !== 'recordings') {
+        recordingUnread++;
+        const badge = document.getElementById('recordingTabCount');
+        if (badge) {
+            badge.textContent = recordingUnread > 9 ? '9+' : recordingUnread;
+            badge.style.display = 'inline-flex';
+        }
+    }
+
+    // Toast notification
+    showRoomToast(
+        '🎙️ Recording Saved',
+        (data.userName || 'A student') + ' saved a clip (' + (data.duration || 0) + 's)',
+        '#22c55e'
+    );
+}
+
+function addRecordingToList(data) {
+    const list  = document.getElementById('recordingsList');
+    const empty = document.getElementById('recordingsEmpty');
+    if (!list) return;
+    if (empty) empty.style.display = 'none';
+
+    const item = document.createElement('div');
+    item.className = 'rec-item';
+    const secs = data.duration || 0;
+    const dur  = secs > 0 ? secs + 's' : '—';
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    item.innerHTML = `
+        <div class="rec-item-header">
+            <span class="rec-item-name"><i class="fas fa-user-graduate" style="margin-right:5px;"></i>${escapeHtml(data.userName || 'Student')}</span>
+            <span class="rec-item-duration"><i class="fas fa-hourglass-half"></i> ${dur}</span>
+        </div>
+        <div class="rec-item-meta"><i class="fas fa-clock"></i> ${time}</div>
+        <a href="/api/meeting/recording/${data.recordingId}/play" target="_blank" class="rec-item-play">
+            <i class="fas fa-play"></i> Play Recording
+        </a>`;
+    list.insertBefore(item, list.firstChild);
 }
 
 // ===== Mic Toggle =====
@@ -293,11 +362,13 @@ function setupAudioVisualization(stream) {
     visualize();
 }
 
-// ===== Recording =====
+// ===== Recording (UI only — host's Record button marks session intent) =====
 function toggleRecording() {
+    if (!RECORDING_ENABLED) return; // guard: should never be called if disabled
     isRecording = !isRecording;
     const btn             = document.getElementById('btnRecord');
     const recordingStatus = document.getElementById('recordingStatus');
+
     if (isRecording) {
         btn.classList.add('active');
         btn.innerHTML = '<i class="fas fa-stop rec-icon"></i><span>Stop</span>';
@@ -309,19 +380,25 @@ function toggleRecording() {
     }
 }
 
-// ===== Tab Switching (Participants / Chat) =====
+// ===== Tab Switching (Participants / Chat / Recordings) =====
 function switchTab(tab) {
     currentTab = tab;
     const pContent = document.getElementById('contentParticipants');
     const cContent = document.getElementById('contentChat');
+    const rContent = document.getElementById('contentRecordings');
     const pTab     = document.getElementById('tabParticipants');
     const cTab     = document.getElementById('tabChat');
+    const rTab     = document.getElementById('tabRecordings');
     const chatBtn  = document.getElementById('btnChat');
 
     if (pContent) pContent.style.display = tab === 'participants' ? 'flex' : 'none';
     if (cContent) cContent.style.display = tab === 'chat'         ? 'flex' : 'none';
-    if (pTab)  pTab.classList.toggle('panel-tab-active', tab === 'participants');
-    if (cTab)  cTab.classList.toggle('panel-tab-active', tab === 'chat');
+    if (rContent) rContent.style.display = tab === 'recordings'   ? 'flex' : 'none';
+
+    if (pTab) pTab.classList.toggle('panel-tab-active', tab === 'participants');
+    if (cTab) cTab.classList.toggle('panel-tab-active', tab === 'chat');
+    if (rTab) rTab.classList.toggle('panel-tab-active', tab === 'recordings');
+
     if (chatBtn) chatBtn.classList.toggle('active', tab === 'chat');
 
     if (tab === 'chat') {
@@ -330,6 +407,12 @@ function switchTab(tab) {
         scrollChatToBottom();
         const inp = document.getElementById('chatInput');
         if (inp) inp.focus();
+    }
+
+    if (tab === 'recordings') {
+        recordingUnread = 0;
+        const badge = document.getElementById('recordingTabCount');
+        if (badge) badge.style.display = 'none';
     }
 }
 
@@ -374,7 +457,6 @@ function handleChatMessage(data) {
     chatMessages.appendChild(msgDiv);
     scrollChatToBottom();
 
-    // Show unread badge when chat tab is not active
     if (currentTab !== 'chat') {
         chatUnread++;
         updateChatBadge();
@@ -405,11 +487,15 @@ function addParticipantToList(userId, userName) {
             <i class="fas fa-microphone-slash status-mic muted"></i>
         </div>`;
     list.appendChild(item);
+
+    // Also add to the top strip
+    _addStudentChip(userId, userName);
 }
 
 function removeParticipantFromList(userId) {
     const item = document.querySelector(`.participant-item[data-user-id="${userId}"]`);
     if (item) item.remove();
+    _removeStudentChip(userId);
 }
 
 function updateParticipantMicStatus(userId, enabled) {
@@ -423,6 +509,43 @@ function updateParticipantMicStatus(userId, enabled) {
     } else {
         if (icon) { icon.classList.remove('fa-microphone'); icon.classList.add('fa-microphone-slash', 'muted'); }
         if (statusText) statusText.innerHTML = '<span class="status-muted">Muted</span>';
+    }
+    // Update the chip mic indicator
+    const chip = document.querySelector(`.student-chip[data-user-id="${userId}"]`);
+    if (chip) {
+        const micI = chip.querySelector('.student-chip-mic');
+        if (micI) {
+            micI.className = 'fas fa-microphone student-chip-mic' + (enabled ? ' speaking' : '-slash student-chip-mic');
+        }
+    }
+}
+
+// ===== Student Strip helpers =====
+function _addStudentChip(userId, userName) {
+    const strip = document.getElementById('studentStripList');
+    const empty = document.getElementById('studentStripEmpty');
+    if (!strip) return;
+    if (strip.querySelector(`.student-chip[data-user-id="${userId}"]`)) return;
+    if (empty) empty.style.display = 'none';
+
+    const initials = userName.trim().split(/\s+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
+    const chip = document.createElement('div');
+    chip.className = 'student-chip';
+    chip.dataset.userId = userId;
+    chip.innerHTML = `
+        <div class="student-chip-avatar">${escapeHtml(initials)}</div>
+        <span class="student-chip-name" title="${escapeHtml(userName)}">${escapeHtml(userName)}</span>
+        <i class="fas fa-microphone-slash student-chip-mic"></i>`;
+    strip.appendChild(chip);
+}
+
+function _removeStudentChip(userId) {
+    const chip = document.querySelector(`.student-chip[data-user-id="${userId}"]`);
+    if (chip) chip.remove();
+    const strip = document.getElementById('studentStripList');
+    const empty = document.getElementById('studentStripEmpty');
+    if (strip && empty && !strip.querySelector('.student-chip')) {
+        empty.style.display = '';
     }
 }
 
@@ -444,6 +567,29 @@ function showSpeakingStudent(userId, userName) {
 function hideSpeakingStudent(userId) {
     const speakingNow = document.getElementById('speakingNow');
     if (speakingNow) speakingNow.style.display = 'none';
+}
+
+// ===== Toast Notification =====
+function showRoomToast(title, message, color) {
+    color = color || '#6366f1';
+    const toast = document.createElement('div');
+    toast.className = 'room-toast';
+    toast.style.borderColor = color;
+    toast.innerHTML = `
+        <div class="room-toast-body">
+            <i class="fas fa-circle-dot room-toast-icon" style="color:${color};"></i>
+            <div class="room-toast-text">
+                <div class="room-toast-title">${escapeHtml(title)}</div>
+                <div class="room-toast-msg">${escapeHtml(message)}</div>
+            </div>
+            <button class="room-toast-close" onclick="this.closest('.room-toast').remove()">✕</button>
+        </div>`;
+    document.body.appendChild(toast);
+    setTimeout(function() {
+        toast.style.transition = 'opacity .4s';
+        toast.style.opacity = '0';
+        setTimeout(function() { toast.remove(); }, 400);
+    }, 6000);
 }
 
 // ===== End Meeting modal =====
@@ -487,7 +633,7 @@ function toggleSettings() {
 
 function escapeHtml(text) {
     const d = document.createElement('div');
-    d.textContent = text;
+    d.textContent = String(text || '');
     return d.innerHTML;
 }
 
@@ -498,21 +644,18 @@ document.addEventListener('keydown', function (e) {
     }
     if (e.key === 'Escape') {
         closeEndModal();
-        if (isChatOpen) toggleChat();
+        if (currentTab === 'chat') switchTab('participants');
     }
 });
 
 // ===== Cleanup =====
 window.addEventListener('beforeunload', function () {
-    // Cancel any pending reconnect
     clearTimeout(_wsReconnectTimer);
-    // Notify students host is leaving
     if (stompClient && stompClient.connected) {
         sendParticipantEvent('leave');
         stompClient.send('/app/control/' + MEETING_CODE, {}, JSON.stringify({ event: 'end-meeting' }));
         stompClient.disconnect();
     }
-    // Close all peer connections
     Object.values(peerConnections).forEach(pc => pc.close());
     if (localStream) localStream.getTracks().forEach(t => t.stop());
 });

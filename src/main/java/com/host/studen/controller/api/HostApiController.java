@@ -36,6 +36,43 @@ public class HostApiController {
     @Autowired
     private RecordingService recordingService;
 
+    // ===== Recordings =====
+
+    @GetMapping("/recordings")
+    public ResponseEntity<?> getRecordings(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            User host = userDetails.getUser();
+            List<User> students = userService.findStudentsByTeacherName(host.getTeacherName());
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (User student : students) {
+                List<Recording> recs = recordingService.findByUser(student);
+                if (recs.isEmpty()) continue;
+                List<Map<String, Object>> recList = new ArrayList<>();
+                for (Recording rec : recs) {
+                    Map<String, Object> r = new HashMap<>();
+                    r.put("id", rec.getId());
+                    r.put("fileName", rec.getFileName());
+                    r.put("durationSeconds", rec.getDurationSeconds());
+                    r.put("fileSize", rec.getFileSize());
+                    r.put("createdAt", rec.getCreatedAt() != null ? rec.getCreatedAt().format(DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm")) : "");
+                    r.put("playUrl", "/api/meeting/recording/" + rec.getId() + "/play");
+                    r.put("downloadUrl", "/api/meeting/recording/" + rec.getId() + "/download");
+                    List<Transcript> trs = transcriptService.findByRecording(rec);
+                    r.put("transcript", trs.isEmpty() ? null : trs.get(0).getContent());
+                    r.put("transcriptId", trs.isEmpty() ? null : trs.get(0).getId());
+                    recList.add(r);
+                }
+                Map<String, Object> group = new HashMap<>();
+                group.put("studentName", student.getDisplayName());
+                group.put("recordings", recList);
+                result.add(group);
+            }
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
     // ===== Student Management =====
 
     @PutMapping("/students/{id}")

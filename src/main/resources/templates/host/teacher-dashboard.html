@@ -453,6 +453,7 @@
         }
 
         /* ===== Students List Row Styles ===== */
+        /* ===== Students Card Grid ===== */
         .students-list-container {
             display: flex;
             flex-direction: column;
@@ -519,45 +520,146 @@
             color: var(--text-muted);
         }
 
-        .students-rows {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+        /* Card Grid */
+        .students-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 12px;
         }
 
-        .student-row {
+        .student-card {
+            position: relative;
+            background: linear-gradient(145deg, #0e7490, #0891b2);
+            border: 1px solid rgba(6,182,212,0.3);
+            border-radius: 12px;
+            padding: 14px 8px 10px;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: space-between;
-            padding: 14px 20px;
-            background: rgba(30, 41, 59, 0.5);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
+            gap: 6px;
+            cursor: pointer;
             transition: all 0.2s ease;
+            overflow: hidden;
+            min-height: 110px;
         }
 
-        .student-row:hover {
-            background: rgba(99, 102, 241, 0.08);
-            border-color: rgba(99, 102, 241, 0.3);
+        .student-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(6,182,212,0.35);
+            border-color: rgba(6,182,212,0.6);
         }
 
-        .student-row-main {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
+        .student-card.blocked {
+            background: linear-gradient(145deg, #374151, #4b5563);
+            border-color: rgba(107,114,128,0.3);
+            opacity: 0.6;
         }
 
-        .student-row-name {
+        .sc-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.25);
+            border: 2px solid rgba(255,255,255,0.2);
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 15px;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+            flex-shrink: 0;
         }
 
-        .student-row-name .name {
+        .sc-name {
+            font-size: 11px;
             font-weight: 600;
-            color: var(--text-primary);
+            color: rgba(255,255,255,0.95);
+            text-align: center;
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 4px;
         }
+
+        .sc-username {
+            font-size: 10px;
+            color: rgba(255,255,255,0.55);
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            width: 100%;
+            padding: 0 4px;
+        }
+
+        .sc-dots {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            margin-top: 2px;
+        }
+
+        .sc-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.25);
+        }
+
+        .sc-dot.online  { background: #22c55e; box-shadow: 0 0 5px #22c55e; }
+        .sc-dot.active  { background: #6366f1; }
+        .sc-dot.offline { background: rgba(255,255,255,0.2); }
+
+        /* Hover overlay with action buttons */
+        .sc-actions {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.78);
+            border-radius: 12px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 6px;
+        }
+
+        .student-card:hover .sc-actions {
+            display: flex;
+        }
+
+        .sc-btn {
+            width: 100%;
+            padding: 5px 8px;
+            border: none;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: all 0.15s ease;
+            color: white;
+            text-decoration: none;
+        }
+
+        .sc-btn-share  { background: rgba(99,102,241,0.8); }
+        .sc-btn-edit   { background: rgba(245,158,11,0.8); }
+        .sc-btn-block  { background: rgba(239,68,68,0.8); }
+        .sc-btn-unblock{ background: rgba(34,197,94,0.8); }
+        .sc-btn-delete { background: rgba(100,116,139,0.7); }
+        .sc-btn:hover  { filter: brightness(1.2); transform: scale(1.03); }
+
+        /* Keep old row styles for reference but hidden */
+        .students-rows { display: none; }
+        .student-row { display: none; }
+        .student-row-main { display: none; }
+        .student-row-name { display: none; }
+        .student-row-name .name { font-weight: 600; color: var(--text-primary); }
 
         .student-row-name .username {
             color: var(--text-muted);
@@ -707,9 +809,10 @@
             flex: 1;
             background: var(--bg-primary);
             display: flex;
-            align-items: center;
-            justify-content: center;
+            align-items: flex-start;
+            justify-content: flex-start;
             min-height: 300px;
+            overflow-y: auto;
         }
 
         .participants-content {
@@ -1884,65 +1987,69 @@
                     </button>
                     <div class="search-students">
                         <i class="fas fa-search"></i>
-                        <input type="text" id="studentTableSearch" placeholder="Search students..." onkeyup="filterStudentTable()">
+                        <input type="text" id="studentTableSearch" placeholder="Search students..." onkeyup="filterStudentCards()">
                     </div>
+                    <span style="font-size:12px;color:var(--text-muted);margin-left:auto;"
+                          th:text="${#lists.size(students)} + ' students'">0 students</span>
                 </div>
-                <div class="students-rows">
-                    <div th:each="student : ${students}" class="student-row" th:data-name="${student.displayName}" th:data-username="${student.username}">
-                        <div class="student-row-main">
-                            <div class="student-row-name">
-                                <span class="name" th:text="${student.displayName}">sha</span>
-                                <span class="username">(<span th:text="${student.username}">sho</span>)</span>
-                                <span class="status-indicator" th:classappend="${student.active ? 'online' : 'offline'}">
-                                    <i class="fas fa-circle"></i>
-                                    <span th:text="${student.active ? 'Online' : 'Offline'}">Offline</span>
-                                </span>
-                            </div>
-                            <div class="student-row-dates">
-                                Created: <span th:text="${#temporals.format(student.createdAt, 'dd/MM/yyyy')}">04/04/2026</span>
-                                | Last seen: <span th:text="${student.lastLoginAt != null ? #temporals.format(student.lastLoginAt, 'dd/MM/yyyy, HH:mm:ss') : 'Never'}">14/04/2026, 10:28:22</span>
-                            </div>
+
+                <!-- Card Grid -->
+                <div class="students-grid" id="studentsGrid">
+                    <div th:each="student : ${students}"
+                         class="student-card"
+                         th:classappend="${!student.active ? ' blocked' : ''}"
+                         th:data-name="${student.displayName}"
+                         th:data-username="${student.username}">
+
+                        <!-- Avatar with initials -->
+                        <div class="sc-avatar"
+                             th:text="${#strings.substring(student.displayName, 0, #strings.length(student.displayName) > 1 ? 2 : 1).toUpperCase()}">AB</div>
+
+                        <!-- Name -->
+                        <div class="sc-name" th:text="${student.displayName}">Name</div>
+
+                        <!-- Username -->
+                        <div class="sc-username" th:text="'@' + ${student.username}">@user</div>
+
+                        <!-- Status dots -->
+                        <div class="sc-dots">
+                            <div class="sc-dot" th:classappend="${student.active ? ' online' : ' offline'}" title="Online status"></div>
+                            <div class="sc-dot active" title="Account active"></div>
+                            <div class="sc-dot" style="background:rgba(99,102,241,0.5);" title="Registered"></div>
                         </div>
-                        <div class="student-row-actions">
-                            <button class="action-btn btn-share"
+
+                        <!-- Hover Actions -->
+                        <div class="sc-actions">
+                            <button class="sc-btn sc-btn-share"
                                     th:data-id="${student.id}"
                                     th:data-name="${student.displayName}"
                                     th:data-username="${student.username}"
-                                    onclick="doShare(this)" title="Share Credentials">
+                                    onclick="doShare(this)">
                                 <i class="fas fa-share-alt"></i> Share
                             </button>
-                            <button class="action-btn btn-call"
-                                    th:data-id="${student.id}"
-                                    th:data-name="${student.displayName}"
-                                    onclick="doCall(this)" title="Call Student">
-                                <i class="fas fa-phone"></i>
-                            </button>
-                            <button class="action-btn btn-edit"
+                            <button class="sc-btn sc-btn-edit"
                                     th:data-id="${student.id}"
                                     th:data-name="${student.displayName}"
                                     th:data-username="${student.username}"
-                                    onclick="doEdit(this)" title="Edit Student">
+                                    onclick="doEdit(this)">
                                 <i class="fas fa-edit"></i> Edit
                             </button>
-                            <button class="action-btn btn-block"
+                            <button th:if="${student.active}" class="sc-btn sc-btn-block"
                                     th:data-id="${student.id}"
                                     th:data-name="${student.displayName}"
-                                    th:classappend="${student.active ? '' : ' btn-unblock'}"
-                                    onclick="doBlock(this)"
-                                    th:title="${student.active ? 'Block Student' : 'Unblock Student'}">
-                                <i th:class="${student.active ? 'fas fa-ban' : 'fas fa-check-circle'}"></i>
-                                <span th:text="${student.active ? 'Block' : 'Unblock'}">Block</span>
+                                    onclick="doBlock(this)">
+                                <i class="fas fa-ban"></i> Block
                             </button>
-                            <button class="action-btn btn-mute"
+                            <button th:unless="${student.active}" class="sc-btn sc-btn-unblock"
                                     th:data-id="${student.id}"
                                     th:data-name="${student.displayName}"
-                                    onclick="doMute(this)" title="Mute Student">
-                                <i class="fas fa-microphone-slash"></i> Mute
+                                    onclick="doBlock(this)">
+                                <i class="fas fa-check-circle"></i> Unblock
                             </button>
-                            <button class="action-btn btn-delete"
+                            <button class="sc-btn sc-btn-delete"
                                     th:data-id="${student.id}"
                                     th:data-name="${student.displayName}"
-                                    onclick="doDelete(this)" title="Delete Student">
+                                    onclick="doDelete(this)">
                                 <i class="fas fa-trash-alt"></i> Delete
                             </button>
                         </div>
@@ -2530,6 +2637,11 @@
                 content.classList.remove('active');
             });
             document.getElementById(tabName + '-tab').classList.add('active');
+
+            // Auto-refresh recordings via AJAX when switching to recordings tab
+            if (tabName === 'recordings' || tabName === 'transcripts') {
+                refreshRecordingsAjax();
+            }
         }
 
         // Settings dropdown
@@ -2752,7 +2864,82 @@
         }
 
         function refreshRecordings() {
-            location.reload();
+            refreshRecordingsAjax();
+        }
+
+        function refreshRecordingsAjax() {
+            const list = document.getElementById('recordingsList');
+            if (!list) return;
+            // Show loading indicator
+            const origContent = list.innerHTML;
+            list.innerHTML = '<div style="text-align:center;padding:30px;color:#a0aec0;"><i class="fas fa-spinner fa-spin" style="font-size:24px;"></i><p style="margin-top:10px;">Loading recordings…</p></div>';
+            fetch('/api/host/recordings')
+                .then(r => r.json())
+                .then(groups => {
+                    if (!Array.isArray(groups) || groups.length === 0) {
+                        list.innerHTML = '<div style="text-align:center;padding:40px;color:#718096;"><i class="fas fa-record-vinyl" style="font-size:48px;opacity:0.3;"></i><p style="margin-top:16px;">No recordings yet.</p></div>';
+                        // Reset badge
+                        const badge = document.querySelector('.nav-tab[data-tab="recordings"] .rec-badge');
+                        if (badge) badge.remove();
+                        return;
+                    }
+                    list.innerHTML = '';
+                    groups.forEach(group => {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'student-recording-wrapper';
+                        const recs = group.recordings || [];
+                        const rowDiv = document.createElement('div');
+                        rowDiv.className = 'student-recording-row';
+                        rowDiv.setAttribute('onclick', 'toggleRecordings(this)');
+                        rowDiv.setAttribute('data-student', group.studentName);
+                        rowDiv.innerHTML = `
+                            <div class="student-recording-info">
+                                <div class="student-recording-name">${_escHtml(group.studentName)}</div>
+                                <div class="student-recording-count">${recs.length} clip${recs.length !== 1 ? 's' : ''}</div>
+                            </div>
+                            <i class="fas fa-chevron-right expand-icon"></i>`;
+                        const itemsDiv = document.createElement('div');
+                        itemsDiv.className = 'recording-items';
+                        let tableRows = '';
+                        recs.forEach((rec, idx) => {
+                            const dur = rec.durationSeconds ? rec.durationSeconds + 's' : '—';
+                            const sz  = rec.fileSize ? (rec.fileSize / 1024).toFixed(1) + ' KB' : '';
+                            const tr  = rec.transcript ? `<div class="transcript-preview-inline"><span class="transcript-label">Transcript:</span><span class="transcript-text-preview">${_escHtml(rec.transcript)}</span></div>` : '<span class="no-transcript">No transcript</span>';
+                            tableRows += `
+                            <tr class="recording-row-2col">
+                                <td class="col-recording-data">
+                                    <div class="recording-meta">
+                                        <span><i class="fas fa-clock"></i>${dur}</span>
+                                        <span>${sz}</span>
+                                        <span><i class="fas fa-calendar"></i>${_escHtml(rec.createdAt)}</span>
+                                    </div>
+                                    <div class="recording-actions-btns" style="margin-top:8px;">
+                                        <a href="${rec.playUrl}" target="_blank" class="btn-play-recording"><i class="fas fa-play"></i> Play</a>
+                                        <a href="${rec.downloadUrl}" download class="btn-download-recording"><i class="fas fa-download"></i> Download</a>
+                                        <button class="btn-delete-recording" onclick="deleteRecording(${rec.id})"><i class="fas fa-trash"></i> Delete</button>
+                                    </div>
+                                </td>
+                                <td class="col-transcript-data">${tr}</td>
+                            </tr>`;
+                        });
+                        itemsDiv.innerHTML = `<table class="recordings-table-2col"><thead><tr><th class="col-rec-header">Recording</th><th class="col-trans-header">Transcript</th></tr></thead><tbody>${tableRows}</tbody></table>`;
+                        wrapper.appendChild(rowDiv);
+                        wrapper.appendChild(itemsDiv);
+                        list.appendChild(wrapper);
+                    });
+                    // Remove badge after successful refresh
+                    const badge = document.querySelector('.nav-tab[data-tab="recordings"] .rec-badge');
+                    if (badge) badge.remove();
+                })
+                .catch(err => {
+                    console.error('Failed to load recordings', err);
+                    list.innerHTML = origContent;
+                });
+        }
+
+        function _escHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
         function saveAllRecordings() {
@@ -2867,11 +3054,13 @@
                                 }
                             }, 4000);
 
-                            showToast('Meeting started! Redirecting to meeting room…', 'success');
-                            // ── Redirect teacher to the actual meeting room ──
-                            setTimeout(function() {
-                                window.location.href = '/meeting/room/' + data.meetingCode;
-                            }, 800);
+                            showToast('Meeting started! Code: ' + data.meetingCode, 'success');
+                            // Update status bar
+                            document.getElementById('meetingStatusInfo').innerHTML =
+                                '<span class="status-text">🟢 Live — Code: <strong>' + data.meetingCode + '</strong></span>';
+                            // ── Start meeting IN the dashboard (no redirect) ──
+                            initDashboardMeeting(data.meetingCode);
+                            switchTab('meeting-controls');
                         } else {
                             btn.disabled = false;
                             btn.innerHTML = '<span>Start Meeting</span>';
@@ -3045,12 +3234,13 @@ _Please login using the above credentials._`;
         }
 
         // ===== Student Table Functions =====
-        function filterStudentTable() {
+        function filterStudentTable() { filterStudentCards(); }
+        function filterStudentCards() {
             const query = (document.getElementById('studentTableSearch')?.value || '').toLowerCase();
-            document.querySelectorAll('.student-row').forEach(row => {
-                const name = (row.getAttribute('data-name') || '').toLowerCase();
-                const username = (row.getAttribute('data-username') || '').toLowerCase();
-                row.style.display = (name.includes(query) || username.includes(query)) ? '' : 'none';
+            document.querySelectorAll('.student-card').forEach(card => {
+                const name = (card.getAttribute('data-name') || '').toLowerCase();
+                const username = (card.getAttribute('data-username') || '').toLowerCase();
+                card.style.display = (name.includes(query) || username.includes(query)) ? '' : 'none';
             });
         }
 
@@ -3778,26 +3968,81 @@ _Please login using the above credentials._`;
         }
 
         /* ===== Dashboard Meeting — Participant Cards ===== */
-        .dm-pcard {
+        /* ===== Dashboard Meeting — Participant Cards Grid ===== */
+        #participantsContent {
+            width: 100%;
+            padding: 16px;
             display: flex;
-            align-items: center;
+            flex-wrap: wrap;
             gap: 12px;
-            padding: 10px 16px;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            margin: 8px;
+            align-content: flex-start;
+            justify-content: flex-start;
         }
-        .dm-avatar {
-            width: 38px; height: 38px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 13px; font-weight: 700; color: white;
+
+        .dm-pcard {
+            position: relative;
+            background: linear-gradient(145deg, #0e7490, #0891b2);
+            border: 1px solid rgba(6,182,212,0.35);
+            border-radius: 12px;
+            padding: 12px 8px 10px;
+            width: 100px;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            cursor: default;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
             flex-shrink: 0;
         }
-        .dm-pname { flex: 1; font-size: 14px; font-weight: 600; }
-        .dm-mic   { flex-shrink: 0; }
+
+        .dm-pcard:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(6,182,212,0.35);
+        }
+
+        .dm-avatar {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.25);
+            border: 2px solid rgba(255,255,255,0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 800; color: white;
+            flex-shrink: 0;
+        }
+
+        .dm-pname {
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.95);
+            text-align: center;
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 4px;
+        }
+
+        .dm-mic {
+            margin-top: 2px;
+        }
+
+        .dm-mic-dots {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dm-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.25);
+        }
+
+        .dm-dot.speaking { background: #22c55e; box-shadow: 0 0 5px #22c55e; }
+        .dm-dot.muted    { background: rgba(239,68,68,0.6); }
 
         /* ===== Dashboard Meeting — Chat Messages ===== */
         .dm-msg {

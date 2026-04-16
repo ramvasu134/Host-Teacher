@@ -4,9 +4,10 @@
 
 // ===== Config =====
 const meetingData = document.getElementById('meetingData');
-const MEETING_CODE = meetingData.dataset.meetingCode;
-const USER_ID      = meetingData.dataset.userId;
-const USER_NAME    = meetingData.dataset.userName;
+const MEETING_CODE       = meetingData.dataset.meetingCode;
+const USER_ID            = meetingData.dataset.userId;
+const USER_NAME          = meetingData.dataset.userName;
+const RECORDING_ENABLED  = meetingData.dataset.recordingEnabled === 'true';
 
 const ICE_SERVERS = {
     iceServers: [
@@ -59,22 +60,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ===== Click on middle panel to toggle mic =====
-    const mainPanel = document.querySelector('.sr-main');
-    if (mainPanel) {
-        mainPanel.addEventListener('click', (e) => {
-            const clickedElement = e.target;
-            const isInteractive = clickedElement.closest('button, a, input, select, textarea, .sr-chat-dialog, .sr-settings-dropdown, .sr-themes-panel');
+    // ===== Click ANYWHERE on center stage to toggle mic =====
+    const stage = document.getElementById('srCenterStage');
+    if (stage) {
+        stage.addEventListener('click', (e) => {
+            // Don't fire if clicking a real interactive element
+            const isInteractive = e.target.closest(
+                'button, a, input, select, textarea, .sr-chat-dialog, ' +
+                '.sr-settings-dropdown, .sr-themes-panel, .sr-modal-overlay'
+            );
             if (!isInteractive) {
                 srToggleMic();
             }
         });
-        mainPanel.style.cursor = 'pointer';
     }
 
     // CRITICAL: Wait for mic permission BEFORE connecting WebSocket.
-    // This ensures localStream is set when peer connections are created,
-    // so the student's audio tracks are added and the teacher can hear them.
     initAudio().then(() => connectWebSocket()).catch(() => connectWebSocket());
 });
 
@@ -240,13 +241,7 @@ function send(payload) {
 }
 
 // ===== Host audio playback =====
-/**
- * Play the host's audio stream using a hidden <audio> element.
- * Using <audio> instead of <video> is more reliable for audio-only
- * streams and avoids browser autoplay-video restrictions.
- */
 function playHostAudio(stream) {
-    // Reuse or create a hidden audio element
     let audio = document.getElementById('host-audio-el');
     if (!audio) {
         audio = document.createElement('audio');
@@ -258,24 +253,18 @@ function playHostAudio(stream) {
     }
     audio.srcObject = stream;
 
-    // Force play; handle browsers that block autoplay without user gesture
     const playPromise = audio.play();
     if (playPromise !== undefined) {
         playPromise.catch(() => {
-            // Autoplay was blocked – show the "Click to Hear" button
             const btn = document.getElementById('unmuteBtn');
             if (btn) btn.style.display = 'inline-flex';
         });
     }
 
-    // Show "Teacher Connected" card, hide waiting card
-    const tc = document.getElementById('teacherConnected');
-    const wc = document.getElementById('waitingCard');
-    if (tc) tc.style.display = 'flex';
-    if (wc) wc.style.display = 'none';
+    // Update teacher-connected indicator
+    _setTeacherConnected(true);
 }
 
-/** Called by the "Click to Hear Audio" button when autoplay was blocked. */
 function resumeHostAudio() {
     const audio = document.getElementById('host-audio-el');
     if (!audio) return;
@@ -285,17 +274,22 @@ function resumeHostAudio() {
     }).catch(() => {});
 }
 
-/** Tear down host audio and return to the waiting state. */
 function hideHostAudio() {
     const audio = document.getElementById('host-audio-el');
     if (audio) { audio.srcObject = null; audio.remove(); }
-
-    const tc  = document.getElementById('teacherConnected');
-    const wc  = document.getElementById('waitingCard');
+    _setTeacherConnected(false);
     const btn = document.getElementById('unmuteBtn');
-    if (tc)  tc.style.display  = 'none';
-    if (wc)  wc.style.display  = '';
     if (btn) btn.style.display = 'none';
+}
+
+function _setTeacherConnected(connected) {
+    const dot  = document.querySelector('.sr-conn-dot');
+    const text = document.getElementById('srTeacherConnText');
+    if (dot) {
+        dot.classList.toggle('online', connected);
+        dot.classList.toggle('offline', !connected);
+    }
+    if (text) text.textContent = connected ? 'Teacher Connected' : 'Waiting for teacher…';
 }
 
 // ===== Participant events =====
@@ -333,73 +327,214 @@ function handleControlEvent(data) {
 
 // ===== Controls =====
 function srToggleMic(forceMute) {
+    // Update mic state
     if (localStream) {
         const track = localStream.getAudioTracks()[0];
         if (track) {
             isMicOn = forceMute === true ? false : !isMicOn;
             track.enabled = isMicOn;
         }
+    } else {
+        isMicOn = forceMute === true ? false : !isMicOn;
     }
-    const btn = document.getElementById('btnMic');
-    const icon = btn.querySelector('i');
-    if (isMicOn) {
-        btn.classList.remove('muted');
-        btn.classList.add('sr-control-btn-green');
-        icon.className = 'fas fa-microphone';
 
-        // Start recording
-        if (localStream) {
+    _updateMicUI(isMicOn);
+
+    if (isMicOn) {
+        // ── Start recording only when teacher has recording enabled ──
+        if (RECORDING_ENABLED && localStream) {
             try {
                 recordedChunks = [];
-                mediaRecorder = new MediaRecorder(localStream);
+                const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                    ? 'audio/webm;codecs=opus'
+                    : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+                const opts = mimeType ? { mimeType } : {};
+                mediaRecorder = new MediaRecorder(localStream, opts);
                 mediaRecorder.ondataavailable = e => {
                     if (e.data && e.data.size > 0) recordedChunks.push(e.data);
                 };
-                mediaRecorder.onstop = () => {
-                    const durationStr = Math.floor((Date.now() - recordingStartTime) / 1000);
-                    if (recordedChunks.length > 0 && durationStr > 0) {
-                        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-                        uploadRecording(blob, durationStr);
-                    }
-                };
+                mediaRecorder.onstop = _onRecordingStop;
                 recordingStartTime = Date.now();
-                mediaRecorder.start();
+                mediaRecorder.start(500); // collect every 500ms for reliability
             } catch (err) {
-                console.error("MediaRecorder error:", err);
+                console.error('MediaRecorder start error:', err);
             }
         }
     } else {
-        btn.classList.add('muted');
-        btn.classList.remove('sr-control-btn-green');
-        icon.className = 'fas fa-microphone-slash';
-
-        // Stop recording
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            mediaRecorder.stop();
+        // ── Stop recording ──
+        if (RECORDING_ENABLED && mediaRecorder && mediaRecorder.state !== 'inactive') {
+            try {
+                mediaRecorder.stop();
+            } catch (e) {
+                console.error('MediaRecorder stop error:', e);
+            }
         }
     }
+
     sendParticipantEvent('mic-toggle');
 }
 
-function uploadRecording(blob, duration) {
-    const formData = new FormData();
-    formData.append('file', blob, 'audio-clip.webm');
-    formData.append('duration', duration);
+// ── Update all mic-related UI ──
+function _updateMicUI(micOn) {
+    const btn      = document.getElementById('btnMic');
+    const icon     = document.getElementById('srMicIcon') || (btn && btn.querySelector('i'));
+    const stage    = document.getElementById('srMicStage') || btn?.closest('.sr-mic-stage');
+    const stageWrap = document.querySelector('.sr-mic-stage');
+    const hintText = document.getElementById('srMicHintText');
 
-    fetch(`/api/meeting/${MEETING_CODE}/recording/upload`, {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
+    if (micOn) {
+        // Active: green
+        if (btn)  { btn.classList.remove('muted'); }
+        if (icon) { icon.className = 'fas fa-microphone'; }
+        if (stageWrap) stageWrap.classList.add('sr-mic-active');
+        if (hintText) hintText.textContent = '🎙️ Speaking — tap to mute';
+    } else {
+        // Muted: red
+        if (btn)  { btn.classList.add('muted'); }
+        if (icon) { icon.className = 'fas fa-microphone-slash'; }
+        if (stageWrap) stageWrap.classList.remove('sr-mic-active');
+        if (hintText) hintText.textContent = '🔇 Muted — tap anywhere to speak';
+    }
+}
+
+// ── Called when MediaRecorder.stop() finishes ──
+function _onRecordingStop() {
+    if (!recordedChunks || recordedChunks.length === 0) return;
+    const durationSecs = Math.max(1, Math.round((Date.now() - recordingStartTime) / 1000));
+    const mimeType = (mediaRecorder && mediaRecorder.mimeType) ? mediaRecorder.mimeType : 'audio/webm';
+    const blob = new Blob(recordedChunks, { type: mimeType });
+    recordedChunks = [];
+    mediaRecorder = null;
+
+    // Show save dialog immediately
+    setTimeout(() => srShowSaveDialog(blob, durationSecs), 100);
+}
+
+// ===== Save Recording Dialog =====
+let _pendingBlob     = null;
+let _pendingDuration = 0;
+
+function srShowSaveDialog(blob, durationSecs) {
+    _pendingBlob     = blob;
+    _pendingDuration = durationSecs;
+
+    const info = document.getElementById('srSaveRecInfo');
+    if (info) info.textContent = 'Audio clip ready — ' + durationSecs + ' second(s). How would you like to save it?';
+
+    const status = document.getElementById('srSaveRecStatus');
+    if (status) { status.textContent = ''; status.style.display = 'none'; }
+
+    // Reset button states
+    ['srSaveRecDownloadBtn','srSaveRecUploadBtn','srSaveRecBothBtn'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.disabled = false; b.style.opacity = '1'; }
+    });
+
+    // Wire up buttons
+    const dlBtn   = document.getElementById('srSaveRecDownloadBtn');
+    const ulBtn   = document.getElementById('srSaveRecUploadBtn');
+    const bothBtn = document.getElementById('srSaveRecBothBtn');
+
+    if (dlBtn)   dlBtn.onclick   = () => { srDownloadBlob(_pendingBlob, _pendingDuration); srCloseSaveDialog(); };
+    if (ulBtn)   ulBtn.onclick   = () => srUploadOnly(_pendingBlob, _pendingDuration);
+    if (bothBtn) bothBtn.onclick = () => srSaveBoth(_pendingBlob, _pendingDuration);
+
+    document.getElementById('srSaveRecOverlay').classList.add('active');
+    document.getElementById('srSaveRecModal').classList.add('open');
+}
+
+function srCloseSaveDialog() {
+    document.getElementById('srSaveRecOverlay').classList.remove('active');
+    document.getElementById('srSaveRecModal').classList.remove('open');
+    _pendingBlob     = null;
+    _pendingDuration = 0;
+}
+
+function srDiscardRecording() {
+    srCloseSaveDialog();
+    showSrNotifToast('Recording Discarded', 'The audio clip was discarded.', 'MEETING_STARTED');
+}
+
+function srDownloadBlob(blob, durationSecs) {
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'recording-' + new Date().toISOString().replace(/[:.]/g, '-') + '.webm';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+function srSetDialogStatus(msg, isError) {
+    const s = document.getElementById('srSaveRecStatus');
+    if (!s) return;
+    s.textContent  = msg;
+    s.style.color  = isError ? '#f87171' : '#22c55e';
+    s.style.display = 'block';
+}
+
+function srDisableDialogButtons(disable) {
+    ['srSaveRecDownloadBtn','srSaveRecUploadBtn','srSaveRecBothBtn'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.disabled = disable; b.style.opacity = disable ? '0.5' : '1'; }
+    });
+}
+
+function srUploadOnly(blob, durationSecs) {
+    srDisableDialogButtons(true);
+    srSetDialogStatus('Uploading to server…', false);
+    uploadRecording(blob, durationSecs)
+        .then(() => {
+            srSetDialogStatus('✅ Saved to server! Teacher can now play it.', false);
+            setTimeout(srCloseSaveDialog, 2000);
+        })
+        .catch(err => {
+            srSetDialogStatus('❌ Upload failed: ' + err.message + '. Try again.', true);
+            srDisableDialogButtons(false);
+        });
+}
+
+function srSaveBoth(blob, durationSecs) {
+    // Download immediately
+    srDownloadBlob(blob, durationSecs);
+    // Then upload
+    srDisableDialogButtons(true);
+    srSetDialogStatus('Uploading to server…', false);
+    uploadRecording(blob, durationSecs)
+        .then(() => {
+            srSetDialogStatus('✅ Saved to device & server!', false);
+            setTimeout(srCloseSaveDialog, 2000);
+        })
+        .catch(err => {
+            srSetDialogStatus('⚠️ Downloaded but upload failed: ' + err.message, true);
+            srDisableDialogButtons(false);
+        });
+}
+
+function uploadRecording(blob, duration) {
+    return new Promise(function(resolve, reject) {
+        const formData = new FormData();
+        formData.append('file', blob, 'audio-clip.webm');
+        formData.append('duration', duration);
+
+        fetch('/api/meeting/' + MEETING_CODE + '/recording/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(r) {
+            if (!r.ok) return r.json().then(d => Promise.reject(new Error(d.error || 'Server error')));
+            return r.json();
+        })
+        .then(function(data) {
+            if (!data.success) return reject(new Error(data.error || 'Upload failed'));
+            // Refresh recordings list if open
             const modal = document.getElementById('srRecordingsModal');
-            if (modal && modal.classList.contains('open')) {
-                srLoadRecordings();
-            }
-        }
-    })
-    .catch(err => console.error("Upload error:", err));
+            if (modal && modal.classList.contains('open')) srLoadRecordings();
+            resolve(data);
+        })
+        .catch(function(err) {
+            reject(err);
+        });
+    });
 }
 
 function srToggleSpeaker() {

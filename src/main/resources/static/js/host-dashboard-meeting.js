@@ -139,9 +139,13 @@ function _dm_connectWS() {
         _dm_stomp.subscribe('/topic/participant/' + _dm_code, m => _dm_onParticipant(JSON.parse(m.body)));
         _dm_stomp.subscribe('/topic/chat/'        + _dm_code, m => _dm_onChat(JSON.parse(m.body)));
         _dm_stomp.subscribe('/topic/control/'     + _dm_code, m => { /* future */ });
+        _dm_stomp.subscribe('/topic/recording/'   + _dm_code, m => _dm_onRecording(JSON.parse(m.body)));
 
         // Announce host presence so any waiting students will create an offer
         _dm_sendParticipant('join');
+
+        // Seed cards for participants already in the meeting (race-condition fix)
+        _dm_seedExistingParticipants();
 
     }, function (err) {
         _dm_wsConnecting = false;
@@ -262,6 +266,26 @@ async function _dm_drainICE(peerId) {
     }
 }
 
+// ── Seed existing participants on WS connect (race-condition fix) ─────────────
+
+function _dm_seedExistingParticipants() {
+    if (!_dm_code) return;
+    fetch('/api/meeting/' + _dm_code + '/participants')
+        .then(function(r) { return r.json(); })
+        .then(function(list) {
+            list.forEach(function(p) {
+                // Only show students (not the host themselves)
+                if (String(p.id) === String(DASH_USER_ID)) return;
+                if (p.role === 'HOST') return;
+                _dm_addCard(p.id, p.displayName || 'Student');
+                _dm_updateCount();
+                // Ask the student to send us an offer so WebRTC audio connects
+                _dm_sendSignal({ type: 'request-offer', targetId: String(p.id) });
+            });
+        })
+        .catch(function(e) { console.warn('[DashMeeting] Could not seed participants:', e); });
+}
+
 // ── Participant events ────────────────────────────────────────────────────────
 
 function _dm_onParticipant(data) {
@@ -347,12 +371,16 @@ function _dm_addCard(userId, userName) {
     if (area.querySelector('[data-pid="' + userId + '"]')) return;
     const initials = _dmInitials(userName);
     const card = document.createElement('div');
-    card.className         = 'dm-pcard';
-    card.dataset.pid       = userId;
-    card.innerHTML = `
-        <div class="dm-avatar">${initials}</div>
-        <div class="dm-pname">${_dmEsc(userName)}</div>
-        <span class="dm-mic" id="dm-mic-${userId}"><i class="fas fa-microphone-slash" style="color:#ef4444;font-size:12px;"></i></span>`;
+    card.className   = 'dm-pcard';
+    card.dataset.pid = userId;
+    card.innerHTML =
+        '<div class="dm-avatar">' + initials + '</div>' +
+        '<div class="dm-pname">' + _dmEsc(userName) + '</div>' +
+        '<div class="dm-mic-dots" id="dm-mic-' + userId + '">' +
+            '<div class="dm-dot muted"></div>' +
+            '<div class="dm-dot" style="background:rgba(6,182,212,0.5);"></div>' +
+            '<div class="dm-dot" style="background:rgba(255,255,255,0.2);"></div>' +
+        '</div>';
     area.appendChild(card);
 }
 
@@ -371,9 +399,16 @@ function _dm_removeCard(userId) {
 function _dm_updateCardMic(userId, micOn) {
     const el = document.getElementById('dm-mic-' + userId);
     if (!el) return;
-    el.innerHTML = micOn
-        ? '<i class="fas fa-microphone"       style="color:#22c55e;font-size:12px;"></i>'
-        : '<i class="fas fa-microphone-slash" style="color:#ef4444;font-size:12px;"></i>';
+    const dot = el.querySelector('.dm-dot');
+    if (dot) {
+        dot.className = 'dm-dot ' + (micOn ? 'speaking' : 'muted');
+    }
+    // Also animate card border when speaking
+    const card = document.querySelector('[data-pid="' + userId + '"]');
+    if (card) {
+        card.style.borderColor = micOn ? 'rgba(34,197,94,0.6)' : 'rgba(6,182,212,0.35)';
+        card.style.boxShadow   = micOn ? '0 0 14px rgba(34,197,94,0.4)' : '';
+    }
 }
 
 function _dm_updateCount() {
@@ -426,6 +461,40 @@ function _dmEsc(text) {
     const d = document.createElement('div');
     d.textContent = text;
     return d.innerHTML;
+}
+
+// ── Recording events ──────────────────────────────────────────────────────────
+
+function _dm_onRecording(data) {
+    if (data.event !== 'recording_saved') return;
+    // Show badge on Recordings nav tab
+    const recTab = document.querySelector('.nav-tab[data-tab="recordings"]');
+    if (recTab) {
+        let badge = recTab.querySelector('.rec-badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'rec-badge';
+            badge.style.cssText = 'display:inline-block;background:#ef4444;color:#fff;border-radius:50%;font-size:10px;min-width:16px;height:16px;line-height:16px;text-align:center;margin-left:4px;';
+            recTab.appendChild(badge);
+        }
+        badge.textContent = (parseInt(badge.textContent || '0') + 1);
+    }
+    // Refresh recordings list via AJAX (no page reload)
+    if (typeof refreshRecordingsAjax === 'function') {
+        refreshRecordingsAjax();
+    }
+    // Toast notification
+    const name = data.userName || 'A student';
+    const dur  = data.duration ? ' (' + data.duration + 's)' : '';
+    _dmShowToast('🎙️ New Clip', name + ' saved an audio clip' + dur, '#6366f1');
+}
+
+function _dmShowToast(title, msg, color) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:' + (color||'#374151') + ';color:#fff;padding:12px 18px;border-radius:10px;z-index:9999;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,0.4);max-width:280px;';
+    t.innerHTML = '<strong>' + title + '</strong><br>' + msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 4500);
 }
 
 // ── Cleanup on page close ─────────────────────────────────────────────────────

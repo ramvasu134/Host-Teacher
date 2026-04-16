@@ -46,10 +46,17 @@ public class MeetingController {
         }
 
         User user = userDetails.getUser();
+        boolean isHost = meeting.getHost().getId().equals(user.getId());
 
         // Auto-start if host is entering and meeting is scheduled
-        if (meeting.getHost().getId().equals(user.getId()) && meeting.getStatus() == MeetingStatus.SCHEDULED) {
+        if (isHost && meeting.getStatus() == MeetingStatus.SCHEDULED) {
             meeting = meetingService.startMeeting(meeting.getId(), user);
+        }
+
+        // Students cannot enter until teacher has started the meeting (status = LIVE)
+        if (!isHost && meeting.getStatus() != MeetingStatus.LIVE) {
+            redirectAttributes.addFlashAttribute("error", "Meeting has not started yet. Please wait for the teacher to start the session.");
+            return "redirect:/student/room";
         }
 
         // Join meeting
@@ -58,7 +65,6 @@ public class MeetingController {
         List<MeetingParticipant> participants = meetingService.getActiveParticipants(meeting);
         List<ChatMessage> chatMessages = chatService.getMessagesByMeeting(meeting);
 
-        boolean isHost = meeting.getHost().getId().equals(user.getId());
 
         model.addAttribute("meeting", meeting);
         model.addAttribute("user", user);

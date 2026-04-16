@@ -13,11 +13,14 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +35,9 @@ public class MeetingApiController {
 
     @Autowired
     private RecordingService recordingService;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     @GetMapping("/{meetingCode}/participants")
     public ResponseEntity<List<Map<String, Object>>> getParticipants(@PathVariable String meetingCode) {
@@ -83,9 +89,28 @@ public class MeetingApiController {
         try {
             Meeting meeting = meetingService.findByMeetingCode(meetingCode)
                     .orElseThrow(() -> new RuntimeException("Meeting not found"));
-            User user = userDetails.getUser();
 
+            // Guard: only save if meeting has recording enabled
+            if (!meeting.isRecordingEnabled()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("error", "Recording is disabled for this meeting");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            User user = userDetails.getUser();
             Recording recording = recordingService.saveRecording(file, meeting, user, duration);
+
+            // ── Notify teacher via WebSocket so they see it instantly ──
+            Map<String, Object> wsPayload = new HashMap<>();
+            wsPayload.put("success", true);
+            wsPayload.put("event", "recording_saved");
+            wsPayload.put("recordingId", recording.getId());
+            wsPayload.put("fileName", recording.getFileName());
+            wsPayload.put("duration", duration);
+            wsPayload.put("userName", user.getDisplayName());
+            wsPayload.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+            messagingTemplate.convertAndSend("/topic/recording/" + meetingCode, wsPayload);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);

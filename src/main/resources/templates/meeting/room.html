@@ -36,6 +36,15 @@
     <!-- Rainbow gradient bar -->
     <div class="gradient-bar"></div>
 
+    <!-- ===== Students Strip (live avatars at top) ===== -->
+    <div class="student-strip" id="studentStrip">
+        <span class="student-strip-label"><i class="fas fa-users"></i> In Session:</span>
+        <div class="student-strip-list" id="studentStripList">
+            <!-- populated by JS when students join -->
+            <span class="student-strip-empty" id="studentStripEmpty">No students yet</span>
+        </div>
+    </div>
+
     <!-- Main Content Area -->
     <div class="room-main">
 
@@ -45,13 +54,14 @@
                 <div class="audio-visual-container">
                     <div class="audio-ring" id="hostAudioRing"></div>
                     <div class="host-avatar">
-                        <!-- Teacher logo with SVG fallback -->
+                        <!-- Teacher logo if set, otherwise show initials -->
                         <img th:if="${teacher != null and teacher.teacherLogo != null and !teacher.teacherLogo.isEmpty()}"
                              th:src="${teacher.teacherLogo}"
-                             alt="Teacher" class="host-avatar-img"/>
-                        <img th:unless="${teacher != null and teacher.teacherLogo != null and !teacher.teacherLogo.isEmpty()}"
-                             th:src="@{/images/default-teacher-logo.svg}"
-                             alt="Teacher" class="host-avatar-img"/>
+                             alt="Teacher" class="host-avatar-img"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
+                        <div class="host-avatar-initials"
+                             th:style="${teacher != null and teacher.teacherLogo != null and !teacher.teacherLogo.isEmpty()} ? 'display:none' : 'display:flex'"
+                             th:text="${user.displayName != null ? #strings.substring(user.displayName, 0, #strings.length(user.displayName) > 1 ? 2 : 1).toUpperCase() : 'T'}">VK</div>
                     </div>
                 </div>
                 <div class="host-info">
@@ -90,6 +100,11 @@
                     <i class="fas fa-comments"></i>
                     <span>Chat</span>
                     <span class="panel-tab-count chat-unread" id="chatBadge" style="display:none;">0</span>
+                </button>
+                <button class="panel-tab" id="tabRecordings" onclick="switchTab('recordings')" th:if="${meeting.recordingEnabled}">
+                    <i class="fas fa-circle-dot" style="color:#ef4444;"></i>
+                    <span>Recordings</span>
+                    <span class="panel-tab-count" id="recordingTabCount" style="display:none;">0</span>
                 </button>
             </div>
 
@@ -154,6 +169,15 @@
                     <button onclick="sendChatMessage()" class="chat-send-btn">
                         <i class="fas fa-paper-plane"></i>
                     </button>
+                </div>
+            </div>
+            <!-- ── Recordings Tab ── -->
+            <div class="tab-content" id="contentRecordings" style="display:none;" th:if="${meeting.recordingEnabled}">
+                <div class="recordings-list" id="recordingsList">
+                    <div class="recordings-empty" id="recordingsEmpty">
+                        <i class="fas fa-microphone-slash"></i>
+                        <span>No recordings yet. Student clips will appear here automatically.</span>
+                    </div>
                 </div>
             </div>
 
