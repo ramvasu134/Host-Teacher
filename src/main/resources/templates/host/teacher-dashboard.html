@@ -1143,20 +1143,26 @@
 
         .recording-actions-btns {
             display: flex;
-            gap: 6px;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
         }
 
         .btn-play-recording, .btn-download-recording, .btn-transcript-recording, .btn-delete-recording {
             width: 32px;
             height: 32px;
+            min-width: 32px;
+            flex-shrink: 0;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
             text-decoration: none;
+            padding: 0;
+            overflow: hidden;
         }
 
         .btn-play-recording {
@@ -2914,9 +2920,10 @@
                                         <span><i class="fas fa-calendar"></i>${_escHtml(rec.createdAt)}</span>
                                     </div>
                                     <div class="recording-actions-btns" style="margin-top:8px;">
-                                        <a href="${rec.playUrl}" target="_blank" class="btn-play-recording"><i class="fas fa-play"></i> Play</a>
+                                        <button class="btn-play-recording" onclick="dashTogglePlay('dash-audio-${rec.id}', this)"><i class="fas fa-play"></i> Play</button>
                                         <a href="${rec.downloadUrl}" download class="btn-download-recording"><i class="fas fa-download"></i> Download</a>
                                         <button class="btn-delete-recording" onclick="deleteRecording(${rec.id})"><i class="fas fa-trash"></i> Delete</button>
+                                        <audio id="dash-audio-${rec.id}" src="${rec.playUrl}" preload="none" style="display:none;" onended="dashResetPlay('dash-audio-${rec.id}')"></audio>
                                     </div>
                                 </td>
                                 <td class="col-transcript-data">${tr}</td>
@@ -2950,6 +2957,21 @@
             if (confirm('Are you sure you want to delete all recordings?')) {
                 alert('Clearing all recordings...');
             }
+        }
+
+        function dashTogglePlay(audioId, btn) {
+            const audio = document.getElementById(audioId);
+            if (!audio) return;
+            document.querySelectorAll('audio[id^="dash-audio-"]').forEach(a => { if (a.id !== audioId && !a.paused) { a.pause(); a.currentTime = 0; } });
+            document.querySelectorAll('.btn-play-recording').forEach(b => { const i = b.querySelector('i'); if (i) i.className = 'fas fa-play'; });
+            if (audio.paused) { audio.play(); const i = btn.querySelector('i'); if (i) i.className = 'fas fa-pause'; }
+            else { audio.pause(); const i = btn.querySelector('i'); if (i) i.className = 'fas fa-play'; }
+        }
+        function dashResetPlay(audioId) {
+            const audio = document.getElementById(audioId);
+            if (audio) audio.currentTime = 0;
+            const container = audio ? audio.closest('.recording-actions-btns') : null;
+            if (container) { const btn = container.querySelector('.btn-play-recording'); if (btn) { const i = btn.querySelector('i'); if (i) i.className = 'fas fa-play'; } }
         }
 
         function deleteRecording(id) {

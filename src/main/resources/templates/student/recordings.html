@@ -45,9 +45,11 @@
                         <div><i class="fas fa-calendar me-1"></i><span th:text="${#temporals.format(rec.createdAt, 'MMM dd, yyyy HH:mm')}">Date</span></div>
                         <div><i class="fas fa-chalkboard-teacher me-1"></i>Meeting: <span th:text="${rec.meeting.title}">Meeting</span></div>
                     </div>
-                    <div class="d-flex gap-2">
-                        <a th:href="@{/api/meeting/recording/{id}/play(id=${rec.id})}" target="_blank" class="btn btn-sm btn-primary"><i class="fas fa-play me-1"></i>Play</a>
+                    <div class="d-flex gap-2 align-items-center">
+                        <button class="btn btn-sm btn-primary" th:onclick="'toggleInlinePlay(\'stu-audio-' + ${rec.id} + '\', this)'"><i class="fas fa-play me-1"></i>Play</button>
                         <a th:href="@{/api/meeting/recording/{id}/download(id=${rec.id})}" class="btn btn-sm btn-outline-light"><i class="fas fa-download me-1"></i>Download</a>
+                        <audio th:id="'stu-audio-' + ${rec.id}" th:src="@{/api/meeting/recording/{id}/play(id=${rec.id})}" preload="none" style="display:none;"
+                               th:onended="'resetInlinePlay(\'stu-audio-' + ${rec.id} + '\')'"></audio>
                     </div>
                 </div>
             </div>
@@ -55,6 +57,22 @@
         </div>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function toggleInlinePlay(audioId, btn) {
+            const audio = document.getElementById(audioId);
+            if (!audio) return;
+            document.querySelectorAll('audio[id^="stu-audio-"]').forEach(a => { if (a.id !== audioId && !a.paused) { a.pause(); a.currentTime = 0; } });
+            document.querySelectorAll('button').forEach(b => { if (b.onclick && b !== btn) { const i = b.querySelector('i.fa-pause'); if (i) i.className = 'fas fa-play me-1'; }});
+            if (audio.paused) { audio.play(); const i = btn.querySelector('i'); if (i) i.className = 'fas fa-pause me-1'; }
+            else { audio.pause(); const i = btn.querySelector('i'); if (i) i.className = 'fas fa-play me-1'; }
+        }
+        function resetInlinePlay(audioId) {
+            const audio = document.getElementById(audioId);
+            if (audio) audio.currentTime = 0;
+            const container = audio ? audio.closest('.d-flex') : null;
+            if (container) { const btn = container.querySelector('button'); if (btn) { const i = btn.querySelector('i'); if (i) i.className = 'fas fa-play me-1'; } }
+        }
+    </script>
 </body>
 </html>
 

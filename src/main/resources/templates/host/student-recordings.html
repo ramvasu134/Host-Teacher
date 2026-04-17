@@ -124,15 +124,17 @@
                         </div>
                     </div>
                     <div class="recording-actions">
-                        <a th:href="@{/api/meeting/recording/{id}/play(id=${rec.id})}" target="_blank" class="rec-action-btn play" title="Play">
+                        <button class="rec-action-btn play" title="Play" th:onclick="'toggleInlinePlay(\'sr-audio-' + ${rec.id} + '\', this)'">
                             <i class="fas fa-play"></i>
-                        </a>
+                        </button>
                         <a th:href="@{/api/meeting/recording/{id}/download(id=${rec.id})}" class="rec-action-btn download" title="Download">
                             <i class="fas fa-download"></i>
                         </a>
                         <button class="rec-action-btn delete" title="Delete" th:onclick="'deleteRecording(' + ${rec.id} + ')'">
                             <i class="fas fa-trash"></i>
                         </button>
+                        <audio th:id="'sr-audio-' + ${rec.id}" th:src="@{/api/meeting/recording/{id}/play(id=${rec.id})}" preload="none" style="display:none;"
+                               th:onended="'resetInlinePlay(\'sr-audio-' + ${rec.id} + '\')'"></audio>
                     </div>
                 </div>
             </div>
@@ -142,6 +144,21 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script th:src="@{/js/host-dashboard.js}"></script>
     <script>
+        function toggleInlinePlay(audioId, btn) {
+            const audio = document.getElementById(audioId);
+            if (!audio) return;
+            document.querySelectorAll('audio[id^="sr-audio-"]').forEach(a => { if (a.id !== audioId && !a.paused) { a.pause(); a.currentTime = 0; } });
+            document.querySelectorAll('.rec-action-btn.play').forEach(b => { const i = b.querySelector('i'); if (i) i.className = 'fas fa-play'; });
+            if (audio.paused) { audio.play(); const i = btn.querySelector('i'); if (i) i.className = 'fas fa-pause'; }
+            else { audio.pause(); const i = btn.querySelector('i'); if (i) i.className = 'fas fa-play'; }
+        }
+        function resetInlinePlay(audioId) {
+            const audio = document.getElementById(audioId);
+            if (audio) audio.currentTime = 0;
+            const container = audio ? audio.closest('.recording-actions') : null;
+            if (container) { const btn = container.querySelector('.rec-action-btn.play'); if (btn) { const i = btn.querySelector('i'); if (i) i.className = 'fas fa-play'; } }
+        }
+
         function deleteRecording(id) {
             if (confirm('Are you sure you want to delete this recording and its transcript?')) {
                 fetch('/api/meeting/recording/' + id, { method: 'DELETE' })

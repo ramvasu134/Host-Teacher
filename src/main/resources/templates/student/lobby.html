@@ -433,16 +433,18 @@
                     data.forEach(rec => {
                         const item = document.createElement('div');
                         item.className = 'sr-rec-item';
+                        const audioId = 'lobby-audio-' + rec.id;
                         item.innerHTML = `
                             <div class="sr-rec-item-info">
                                 <div class="sr-rec-item-name"><i class="fas fa-file-video" style="color:#38bdf8;margin-right:8px;"></i>${escHtml(rec.fileName)}</div>
                                 <div class="sr-rec-item-meta">${escHtml(rec.createdAt)} · ${escHtml(rec.meetingTitle)}</div>
                             </div>
                             <div class="sr-rec-item-btns">
-                                <a href="/api/meeting/recording/${rec.id}/play" target="_blank" class="sr-rec-item-btn sr-rec-item-play"><i class="fas fa-play"></i> Play</a>
+                                <button class="sr-rec-item-btn sr-rec-item-play" onclick="lobbyTogglePlay('${audioId}', this)"><i class="fas fa-play"></i> Play</button>
                                 <a href="/api/meeting/recording/${rec.id}/download" class="sr-rec-item-btn sr-rec-item-dl"><i class="fas fa-download"></i> Download</a>
                                 <button class="sr-rec-item-btn sr-rec-item-del" onclick="srDeleteRecording(${rec.id}, this)"><i class="fas fa-trash"></i> Delete</button>
-                            </div>`;
+                            </div>
+                            <audio id="${audioId}" src="/api/meeting/recording/${rec.id}/play" preload="none" onended="lobbyResetPlay('${audioId}')" style="display:none;"></audio>`;
                         list.appendChild(item);
                     });
                 }).catch(() => {});
@@ -454,6 +456,30 @@
                 .then(r => r.json())
                 .then(d => { if (d.success) { btn.closest('.sr-rec-item').remove(); } })
                 .catch(() => {});
+        }
+
+        function lobbyTogglePlay(audioId, btn) {
+            const audio = document.getElementById(audioId);
+            if (!audio) return;
+            document.querySelectorAll('audio[id^="lobby-audio-"]').forEach(a => {
+                if (a.id !== audioId && !a.paused) { a.pause(); a.currentTime = 0; }
+            });
+            document.querySelectorAll('.sr-rec-item-play').forEach(b => {
+                const icon = b.querySelector('i'); if (icon) icon.className = 'fas fa-play';
+            });
+            if (audio.paused) {
+                audio.play();
+                const icon = btn.querySelector('i'); if (icon) icon.className = 'fas fa-pause';
+            } else {
+                audio.pause();
+                const icon = btn.querySelector('i'); if (icon) icon.className = 'fas fa-play';
+            }
+        }
+        function lobbyResetPlay(audioId) {
+            const audio = document.getElementById(audioId);
+            if (audio) audio.currentTime = 0;
+            const item = audio ? audio.closest('.sr-rec-item') : null;
+            if (item) { const btn = item.querySelector('.sr-rec-item-play'); if (btn) { const i = btn.querySelector('i'); if (i) i.className = 'fas fa-play'; } }
         }
 
         function srSaveAllRecordings() {

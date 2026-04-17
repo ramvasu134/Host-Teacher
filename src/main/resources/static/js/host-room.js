@@ -296,16 +296,76 @@ function addRecordingToList(data) {
     const secs = data.duration || 0;
     const dur  = secs > 0 ? secs + 's' : '—';
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const audioId = 'host-audio-rec-' + data.recordingId;
     item.innerHTML = `
         <div class="rec-item-header">
             <span class="rec-item-name"><i class="fas fa-user-graduate" style="margin-right:5px;"></i>${escapeHtml(data.userName || 'Student')}</span>
             <span class="rec-item-duration"><i class="fas fa-hourglass-half"></i> ${dur}</span>
         </div>
         <div class="rec-item-meta"><i class="fas fa-clock"></i> ${time}</div>
-        <a href="/api/meeting/recording/${data.recordingId}/play" target="_blank" class="rec-item-play">
-            <i class="fas fa-play"></i> Play Recording
-        </a>`;
+        <div class="rec-item-actions">
+            <button type="button" class="rec-item-btn rec-item-play" onclick="hostTogglePlay('${audioId}', this)">
+                <i class="fas fa-play"></i> Play
+            </button>
+            <a href="/api/meeting/recording/${data.recordingId}/download" class="rec-item-btn rec-item-download">
+                <i class="fas fa-download"></i> Download
+            </a>
+            <button type="button" class="rec-item-btn rec-item-delete" onclick="deleteRecording(${data.recordingId})">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+        </div>
+        <audio id="${audioId}" src="/api/meeting/recording/${data.recordingId}/play" preload="none"
+               onended="hostResetPlayBtn('${audioId}')" style="display:none;"></audio>`;
     list.insertBefore(item, list.firstChild);
+}
+
+// Inline audio play/pause for host recording list
+function hostTogglePlay(audioId, btn) {
+    const audio = document.getElementById(audioId);
+    if (!audio) return;
+    // Pause all other audios
+    document.querySelectorAll('audio[id^="host-audio-rec-"]').forEach(a => {
+        if (a.id !== audioId && !a.paused) { a.pause(); a.currentTime = 0; }
+    });
+    document.querySelectorAll('.rec-item-play').forEach(b => {
+        const icon = b.querySelector('i');
+        if (icon) icon.className = 'fas fa-play';
+    });
+    if (audio.paused) {
+        audio.play();
+        const icon = btn.querySelector('i');
+        if (icon) icon.className = 'fas fa-pause';
+    } else {
+        audio.pause();
+        const icon = btn.querySelector('i');
+        if (icon) icon.className = 'fas fa-play';
+    }
+}
+function hostResetPlayBtn(audioId) {
+    const audio = document.getElementById(audioId);
+    if (audio) audio.currentTime = 0;
+    const item = audio ? audio.closest('.rec-item') : null;
+    if (item) {
+        const btn = item.querySelector('.rec-item-play');
+        if (btn) { const i = btn.querySelector('i'); if (i) i.className = 'fas fa-play'; }
+    }
+}
+
+function deleteRecording(recordingId) {
+    if (!confirm('Are you sure you want to delete this recording?')) return;
+    fetch(`/api/meeting/recording/${recordingId}/delete`, { method: 'POST' })
+        .then(r => r.ok ? Promise.resolve() : Promise.reject(r.status))
+        .then(() => {
+            const item = document.querySelector(`[data-recording-id="${recordingId}"]`);
+            if (item) item.remove();
+            const empty = document.getElementById('recordingsEmpty');
+            const list = document.getElementById('recordingsList');
+            if (list && !list.querySelector('.rec-item') && empty) {
+                empty.style.display = 'flex';
+            }
+            showRoomToast('Deleted', 'Recording removed successfully', '#ef4444');
+        })
+        .catch(err => showRoomToast('Error', 'Failed to delete recording', '#ef4444'));
 }
 
 // ===== Mic Toggle =====

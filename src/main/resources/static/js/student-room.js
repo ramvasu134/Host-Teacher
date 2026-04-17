@@ -76,7 +76,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // CRITICAL: Wait for mic permission BEFORE connecting WebSocket.
-    initAudio().then(() => connectWebSocket()).catch(() => connectWebSocket());
+    initAudio().then(() => {
+        // Start recording immediately if mic is on and recording is enabled
+        _startRecordingIfReady();
+        connectWebSocket();
+    }).catch(() => connectWebSocket());
 });
 
 // ===== Audio init =====
@@ -88,6 +92,30 @@ async function initAudio() {
         });
     } catch (err) {
         console.warn('Mic access denied:', err);
+    }
+}
+
+// Start MediaRecorder if mic is on, recording enabled, and stream exists
+function _startRecordingIfReady() {
+    if (!RECORDING_ENABLED || !localStream || !isMicOn) return;
+    try {
+        recordedChunks = [];
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus'
+            : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+        const opts = mimeType ? { mimeType } : {};
+        mediaRecorder = new MediaRecorder(localStream, opts);
+        mediaRecorder.ondataavailable = e => {
+            if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+        };
+        mediaRecorder.onstop = _onRecordingStop;
+        recordingStartTime = Date.now();
+        mediaRecorder.start(500);
+        // Start speech-to-text transcription alongside recording
+        _startTranscription();
+        console.log('Recording + transcription started');
+    } catch (err) {
+        console.error('MediaRecorder start error:', err);
     }
 }
 
@@ -342,24 +370,7 @@ function srToggleMic(forceMute) {
 
     if (isMicOn) {
         // ── Start recording only when teacher has recording enabled ──
-        if (RECORDING_ENABLED && localStream) {
-            try {
-                recordedChunks = [];
-                const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-                    ? 'audio/webm;codecs=opus'
-                    : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
-                const opts = mimeType ? { mimeType } : {};
-                mediaRecorder = new MediaRecorder(localStream, opts);
-                mediaRecorder.ondataavailable = e => {
-                    if (e.data && e.data.size > 0) recordedChunks.push(e.data);
-                };
-                mediaRecorder.onstop = _onRecordingStop;
-                recordingStartTime = Date.now();
-                mediaRecorder.start(500); // collect every 500ms for reliability
-            } catch (err) {
-                console.error('MediaRecorder start error:', err);
-            }
-        }
+        _startRecordingIfReady();
     } else {
         // ── Stop recording ──
         if (RECORDING_ENABLED && mediaRecorder && mediaRecorder.state !== 'inactive') {
@@ -406,7 +417,28 @@ function _onRecordingStop() {
     recordedChunks = [];
     mediaRecorder = null;
 
-    // Show save dialog immediately
+    // Stop speech recognition — then wait 600ms for final results to arrive
+    _stopTranscriptionAsync();
+
+    // Delay upload so recognition has time to deliver final results
+    setTimeout(function() {
+        const transcript = _getTranscriptResult();
+        console.log('Transcript captured:', transcript || '(empty — speech API may not be supported)');
+
+        // AUTO-UPLOAD to server immediately (teacher gets it instantly)
+        console.log('Auto-uploading recording (' + durationSecs + 's) to server...');
+        uploadRecording(blob, durationSecs, transcript)
+            .then(() => {
+                console.log('Recording auto-uploaded successfully');
+                showSrNotifToast('Recording Saved', '✅ ' + durationSecs + 's clip saved to server.', 'MEETING_STARTED');
+            })
+            .catch(err => {
+                console.error('Auto-upload failed:', err);
+                showSrNotifToast('Upload Failed', '❌ Could not save clip: ' + err.message, 'MEETING_STARTED');
+            });
+    }, 700);
+
+    // Also show save dialog so student can download locally
     setTimeout(() => srShowSaveDialog(blob, durationSecs), 100);
 }
 
@@ -510,11 +542,12 @@ function srSaveBoth(blob, durationSecs) {
         });
 }
 
-function uploadRecording(blob, duration) {
+function uploadRecording(blob, duration, transcript) {
     return new Promise(function(resolve, reject) {
         const formData = new FormData();
         formData.append('file', blob, 'audio-clip.webm');
         formData.append('duration', duration);
+        if (transcript) formData.append('transcript', transcript);
 
         fetch('/api/meeting/' + MEETING_CODE + '/recording/upload', {
             method: 'POST',
@@ -621,6 +654,7 @@ function srLoadRecordings() {
                 const dur  = secs > 0 ? `${secs}s` : '0s';
                 const item = document.createElement('div');
                 item.className = 'sr-rec-item';
+                const audioId = 'sr-audio-' + rec.id;
                 item.innerHTML = `
                     <div style="display:flex; justify-content:space-between; width:100%; align-items:center; margin-bottom: 12px;">
                         <div style="font-size:14px; color:#bbb;">
@@ -630,11 +664,18 @@ function srLoadRecordings() {
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
-                    <div>
-                        <a href="/api/meeting/recording/${rec.id}/play" target="_blank" class="sr-rec-item-btn sr-rec-item-play" style="display:inline-block;">
-                            <i class="fas fa-play"></i> Load Audio
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <button class="sr-rec-item-btn sr-rec-item-play" onclick="srTogglePlay('${audioId}', this)" style="display:inline-flex;align-items:center;gap:4px;">
+                            <i class="fas fa-play"></i> Play
+                        </button>
+                        <a href="/api/meeting/recording/${rec.id}/download" class="sr-rec-item-btn" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;">
+                            <i class="fas fa-download"></i> Download
                         </a>
-                    </div>`;
+                    </div>
+                    <audio id="${audioId}" src="/api/meeting/recording/${rec.id}/play" preload="none"
+                           onended="srResetPlayBtn('${audioId}')"
+                           style="display:none;width:100%;margin-top:8px;"></audio>
+                    ${rec.transcriptContent ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(255,255,255,0.05);border-radius:8px;font-size:12px;color:#ccc;"><i class=&quot;fas fa-file-alt&quot; style=&quot;margin-right:4px;color:#FFB84D;&quot;></i>' + escHtml(rec.transcriptContent) + '</div>' : ''}`;
                 list.appendChild(item);
             });
         })
@@ -853,6 +894,114 @@ function showSrNotifToast(title, message, type) {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 400);
     }, 6000);
+}
+
+// ===== Inline audio play/pause =====
+function srTogglePlay(audioId, btn) {
+    const audio = document.getElementById(audioId);
+    if (!audio) return;
+    // Pause all other playing audios
+    document.querySelectorAll('audio').forEach(a => {
+        if (a.id !== audioId && !a.paused) { a.pause(); a.currentTime = 0; }
+    });
+    document.querySelectorAll('.sr-rec-item-play').forEach(b => {
+        const icon = b.querySelector('i');
+        if (icon) icon.className = 'fas fa-play';
+        b.querySelector('i').nextSibling && (b.lastChild.textContent = b.lastChild.textContent.replace('Pause','Play'));
+    });
+    if (audio.paused) {
+        audio.play();
+        const icon = btn.querySelector('i');
+        if (icon) icon.className = 'fas fa-pause';
+    } else {
+        audio.pause();
+        const icon = btn.querySelector('i');
+        if (icon) icon.className = 'fas fa-play';
+    }
+}
+function srResetPlayBtn(audioId) {
+    const audio = document.getElementById(audioId);
+    if (audio) audio.currentTime = 0;
+    // Find the play button for this audio
+    const item = audio ? audio.closest('.sr-rec-item') : null;
+    if (item) {
+        const btn = item.querySelector('.sr-rec-item-play');
+        if (btn) { const i = btn.querySelector('i'); if (i) i.className = 'fas fa-play'; }
+    }
+}
+
+// ===== Speech-to-Text Transcript Generation (Browser Web Speech API) =====
+let _speechRecognition = null;
+let _transcriptText = '';
+let _interimText = '';
+
+function _initSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        console.warn('SpeechRecognition API not available in this browser');
+        return;
+    }
+    _speechRecognition = new SpeechRecognition();
+    _speechRecognition.continuous = true;
+    _speechRecognition.interimResults = true;
+    _speechRecognition.lang = 'en-US';
+    _speechRecognition.maxAlternatives = 1;
+    _speechRecognition.onresult = (event) => {
+        _interimText = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+                _transcriptText += event.results[i][0].transcript + ' ';
+            } else {
+                _interimText += event.results[i][0].transcript;
+            }
+        }
+        console.log('Transcript progress:', (_transcriptText + _interimText).trim());
+    };
+    _speechRecognition.onerror = (e) => {
+        console.warn('Speech recognition error:', e.error);
+        // On "no-speech" or "aborted", just ignore — not a real failure
+    };
+    _speechRecognition.onend = () => {
+        // Auto-restart if mic is still on (recognition can time out after silence)
+        if (isMicOn && _speechRecognition) {
+            try { _speechRecognition.start(); } catch(e) {}
+        }
+    };
+}
+
+function _startTranscription() {
+    if (!_speechRecognition) _initSpeechRecognition();
+    if (!_speechRecognition) return;
+    _transcriptText = '';
+    _interimText = '';
+    try {
+        _speechRecognition.start();
+        console.log('Speech recognition started');
+    } catch(e) {
+        console.warn('Speech start error:', e);
+        // If already started, that's OK
+    }
+}
+
+// Stop recognition (async — results may still arrive after this call)
+function _stopTranscriptionAsync() {
+    if (_speechRecognition) {
+        try { _speechRecognition.stop(); } catch(e) {}
+    }
+}
+
+// Read the accumulated transcript text (call after a delay from stop)
+function _getTranscriptResult() {
+    const result = (_transcriptText + _interimText).trim();
+    _transcriptText = '';
+    _interimText = '';
+    return result;
+}
+
+// Legacy sync version (kept for compatibility)
+function _stopTranscription() {
+    _stopTranscriptionAsync();
+    return _getTranscriptResult();
 }
 
 // ===== Cleanup on page leave =====

@@ -41,11 +41,11 @@ public class RecordingService {
     }
 
     public List<Recording> findByMeeting(Meeting meeting) {
-        return recordingRepository.findByMeetingOrderByCreatedAtDesc(meeting);
+        return recordingRepository.findByMeetingAndStatusNotOrderByCreatedAtDesc(meeting, Recording.RecordingStatus.DELETED);
     }
 
     public List<Recording> findByUser(User user) {
-        return recordingRepository.findByRecordedByOrderByCreatedAtDesc(user);
+        return recordingRepository.findByRecordedByAndStatusNotOrderByCreatedAtDesc(user, Recording.RecordingStatus.DELETED);
     }
 
     /**
@@ -53,7 +53,7 @@ public class RecordingService {
      * This is called when student unmutes and records audio
      */
     @Transactional
-    public Recording saveRecording(MultipartFile file, Meeting meeting, User recordedBy, long durationSeconds) throws IOException {
+    public Recording saveRecording(MultipartFile file, Meeting meeting, User recordedBy, long durationSeconds, String transcriptText) throws IOException {
         // Create recording directory if it doesn't exist
         Path uploadPath = Paths.get(recordingDir, meeting.getMeetingCode());
         if (!Files.exists(uploadPath)) {
@@ -89,8 +89,8 @@ public class RecordingService {
 
         Recording savedRecording = recordingRepository.save(recording);
         
-        // Auto-generate transcript placeholder
-        generateTranscriptForRecording(savedRecording, recordedBy);
+        // Save transcript (from browser speech recognition or placeholder)
+        generateTranscriptForRecording(savedRecording, recordedBy, transcriptText);
         
         return savedRecording;
     }
@@ -130,29 +130,33 @@ public class RecordingService {
         Recording savedRecording = recordingRepository.save(recording);
         
         // Auto-generate transcript
-        generateTranscriptForRecording(savedRecording, recordedBy);
+        generateTranscriptForRecording(savedRecording, recordedBy, null);
         
         return savedRecording;
     }
 
     /**
      * Generate transcript for a recording
-     * In production, this would call a speech-to-text API
      */
-    private void generateTranscriptForRecording(Recording recording, User student) {
+    private void generateTranscriptForRecording(Recording recording, User student, String transcriptText) {
         try {
+            String content = (transcriptText != null && !transcriptText.trim().isEmpty())
+                    ? transcriptText.trim()
+                    : "[Audio recording - " + recording.getDurationSeconds() + " seconds]";
+            
             Transcript transcript = new Transcript();
             transcript.setRecording(recording);
             transcript.setUser(student);
             transcript.setSpeakerName(student.getDisplayName());
-            transcript.setContent("[Audio recording - " + recording.getDurationSeconds() + " seconds - Transcript pending processing]");
+            transcript.setContent(content);
             transcript.setStartTimeSeconds(0);
             transcript.setEndTimeSeconds((int) recording.getDurationSeconds());
             transcript.setLanguage("en");
             transcriptRepository.save(transcript);
+            
             log.info("Transcript placeholder created for recording: {}", recording.getId());
         } catch (Exception e) {
-            log.error("Error generating transcript for recording: {}", e.getMessage());
+            log.error("Error creating transcript for recording: {}", e.getMessage(), e);
         }
     }
 
@@ -181,7 +185,7 @@ public class RecordingService {
     }
     
     public long countByUser(User user) {
-        return recordingRepository.findByRecordedByOrderByCreatedAtDesc(user).size();
+        return recordingRepository.findByRecordedByAndStatusNotOrderByCreatedAtDesc(user, Recording.RecordingStatus.DELETED).size();
     }
 }
 

@@ -85,6 +85,7 @@ public class MeetingApiController {
             @PathVariable String meetingCode,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "duration", defaultValue = "0") long duration,
+            @RequestParam(value = "transcript", required = false) String transcript,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         try {
             Meeting meeting = meetingService.findByMeetingCode(meetingCode)
@@ -99,7 +100,7 @@ public class MeetingApiController {
             }
 
             User user = userDetails.getUser();
-            Recording recording = recordingService.saveRecording(file, meeting, user, duration);
+            Recording recording = recordingService.saveRecording(file, meeting, user, duration, transcript);
 
             // ── Notify teacher via WebSocket so they see it instantly ──
             Map<String, Object> wsPayload = new HashMap<>();

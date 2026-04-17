@@ -119,17 +119,19 @@
                                             <span th:if="${rec.durationSeconds > 0}" th:text="' • ' + ${rec.durationSeconds} + 's'">Duration</span>
                                         </div>
                                     </div>
-                                    <div class="rec-actions">
-                                        <a th:href="@{/api/meeting/recording/{id}/play(id=${rec.id})}" target="_blank" class="rec-btn play" title="Play">
-                                            <i class="fas fa-play"></i>
-                                        </a>
-                                        <a th:href="@{/api/meeting/recording/{id}/download(id=${rec.id})}" class="rec-btn download" title="Download">
-                                            <i class="fas fa-download"></i>
-                                        </a>
-                                        <button class="rec-btn delete" title="Delete" th:onclick="'deleteRecording(' + ${rec.id} + ')'">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
+                                </div>
+                                <div class="rec-actions">
+                                    <button class="rec-btn play" title="Play" th:onclick="'toggleInlinePlay(\'rec-audio-' + ${rec.id} + '\', this)'">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                    <a th:href="@{/api/meeting/recording/{id}/download(id=${rec.id})}" class="rec-btn download" title="Download">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                    <button class="rec-btn delete" title="Delete" th:onclick="'deleteRecording(' + ${rec.id} + ')'">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    <audio th:id="'rec-audio-' + ${rec.id}" th:src="@{/api/meeting/recording/{id}/play(id=${rec.id})}" preload="none" style="display:none;"
+                                           th:onended="'resetInlinePlay(\'rec-audio-' + ${rec.id} + '\')'"></audio>
                                 </div>
                             </td>
 
@@ -291,6 +293,21 @@
             }
 
             console.log('View changed to: ' + view);
+        }
+
+        function toggleInlinePlay(audioId, btn) {
+            const audio = document.getElementById(audioId);
+            if (!audio) return;
+            document.querySelectorAll('audio[id^="rec-audio-"]').forEach(a => { if (a.id !== audioId && !a.paused) { a.pause(); a.currentTime = 0; } });
+            document.querySelectorAll('.rec-btn.play').forEach(b => { const i = b.querySelector('i'); if (i) i.className = 'fas fa-play'; });
+            if (audio.paused) { audio.play(); const i = btn.querySelector('i'); if (i) i.className = 'fas fa-pause'; }
+            else { audio.pause(); const i = btn.querySelector('i'); if (i) i.className = 'fas fa-play'; }
+        }
+        function resetInlinePlay(audioId) {
+            const audio = document.getElementById(audioId);
+            if (audio) audio.currentTime = 0;
+            const btn = audio ? audio.closest('td,.rec-actions')?.querySelector('.rec-btn.play') : null;
+            if (btn) { const i = btn.querySelector('i'); if (i) i.className = 'fas fa-play'; }
         }
 
         function deleteRecording(id) {
@@ -477,56 +494,66 @@
             border-right: 1px solid var(--border-color);
         }
 
-        /* Recording Cell */
-        .recording-cell {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-        .recording-icon-sm {
-            width: 44px; height: 44px;
-            background: linear-gradient(135deg, #ef4444, #f87171);
-            border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
-            position: relative;
-        }
-        .recording-icon-sm i { color: white; font-size: 16px; }
-        .clip-num {
-            position: absolute;
-            bottom: -4px; right: -4px;
-            background: #1e293b;
-            border: 2px solid var(--border-color);
-            padding: 1px 5px;
-            border-radius: 4px;
-            font-size: 9px;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-        .recording-details { flex: 1; min-width: 0; }
-        .rec-name {
-            font-size: 14px;
-            font-weight: 600;
-            margin: 0 0 4px;
-            color: var(--text-primary);
-        }
-        .rec-meta {
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-        .rec-actions {
-            display: flex;
-            gap: 6px;
-        }
+         /* Recording Cell */
+         .recording-cell {
+             display: flex;
+             align-items: center;
+             gap: 14px;
+             flex-wrap: wrap;
+         }
+         .recording-icon-sm {
+             width: 44px; height: 44px;
+             background: linear-gradient(135deg, #ef4444, #f87171);
+             border-radius: 10px;
+             display: flex; align-items: center; justify-content: center;
+             flex-shrink: 0;
+             position: relative;
+         }
+         .recording-icon-sm i { color: white; font-size: 16px; }
+         .clip-num {
+             position: absolute;
+             bottom: -4px; right: -4px;
+             background: #1e293b;
+             border: 2px solid var(--border-color);
+             padding: 1px 5px;
+             border-radius: 4px;
+             font-size: 9px;
+             font-weight: 600;
+             color: var(--text-secondary);
+         }
+         .recording-details { flex: 1; min-width: 0; }
+         .rec-name {
+             font-size: 14px;
+             font-weight: 600;
+             margin: 0 0 4px;
+             color: var(--text-primary);
+         }
+         .rec-meta {
+             font-size: 12px;
+             color: var(--text-muted);
+         }
+         .rec-actions {
+              display: flex;
+              gap: 8px;
+              width: 100%;
+              margin-top: 10px;
+              justify-content: flex-start;
+              flex-wrap: wrap;
+              align-items: center;
+          }
         .rec-btn {
             width: 32px; height: 32px;
+            min-width: 32px;
+            flex-shrink: 0;
             border-radius: 8px;
             border: none;
-            display: flex; align-items: center; justify-content: center;
+            display: inline-flex; align-items: center; justify-content: center;
             cursor: pointer;
             transition: all 0.2s ease;
             text-decoration: none;
             font-size: 12px;
+            padding: 0;
+            overflow: hidden;
         }
         .rec-btn.play { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
         .rec-btn.play:hover { box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4); }
@@ -539,34 +566,38 @@
         .rec-btn.expand { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
         .rec-btn.expand:hover { background: rgba(245, 158, 11, 0.25); }
 
-        /* Transcript Cell */
-        .transcript-cell {
-            position: relative;
-            min-height: 60px;
-        }
-        .transcript-text-cell {
-            font-size: 13px;
-            line-height: 1.6;
-            color: var(--text-primary);
-            margin: 0;
-            max-height: 100px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .transcript-actions {
-            display: flex;
-            gap: 6px;
-            margin-top: 10px;
-        }
-        .no-transcript-cell {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: var(--text-muted);
-            font-size: 13px;
-            font-style: italic;
-        }
-        .no-transcript-cell i { font-size: 18px; opacity: 0.5; }
+         /* Transcript Cell */
+         .transcript-cell {
+             position: relative;
+             min-height: 80px;
+             display: flex;
+             flex-direction: column;
+         }
+         .transcript-text-cell {
+             font-size: 13px;
+             line-height: 1.6;
+             color: var(--text-primary);
+             margin: 0 0 10px;
+             max-height: 80px;
+             overflow: hidden;
+             text-overflow: ellipsis;
+         }
+         .transcript-actions {
+             display: flex;
+             gap: 6px;
+             margin-top: auto;
+             justify-content: flex-start;
+         }
+         .no-transcript-cell {
+             display: flex;
+             align-items: center;
+             gap: 10px;
+             color: var(--text-muted);
+             font-size: 13px;
+             font-style: italic;
+             min-height: 80px;
+         }
+         .no-transcript-cell i { font-size: 18px; opacity: 0.5; }
 
         /* Empty State */
         .empty-state-large {

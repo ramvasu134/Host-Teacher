@@ -3,6 +3,7 @@ package com.host.studen.controller.api;
 import com.host.studen.model.User;
 import com.host.studen.security.CustomUserDetails;
 import com.host.studen.service.RecordingService;
+import com.host.studen.service.TranscriptService;
 import com.host.studen.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,9 @@ public class UserApiController {
 
     @Autowired
     private RecordingService recordingService;
+
+    @Autowired
+    private TranscriptService transcriptService;
 
     /**
      * Change password for the currently authenticated user.
@@ -91,6 +95,9 @@ public class UserApiController {
                     map.put("createdAt", r.getCreatedAt() != null ? r.getCreatedAt().format(fmt) : "");
                     map.put("durationSeconds", r.getDurationSeconds());
                     map.put("fileSize", r.getFileSize());
+                    // Include transcript content
+                    String transcriptContent = transcriptService.getTranscriptTextForRecording(r.getId());
+                    map.put("transcriptContent", transcriptContent);
                     return map;
                 })
                 .collect(Collectors.toList());

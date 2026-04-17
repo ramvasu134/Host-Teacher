@@ -15,5 +15,7 @@ public interface RecordingRepository extends JpaRepository<Recording, Long> {
     List<Recording> findByMeetingOrderByCreatedAtDesc(Meeting meeting);
     List<Recording> findByRecordedByOrderByCreatedAtDesc(User user);
     List<Recording> findByStatus(Recording.RecordingStatus status);
+    List<Recording> findByRecordedByAndStatusNotOrderByCreatedAtDesc(User user, Recording.RecordingStatus status);
+    List<Recording> findByMeetingAndStatusNotOrderByCreatedAtDesc(Meeting meeting, Recording.RecordingStatus status);
 }
 

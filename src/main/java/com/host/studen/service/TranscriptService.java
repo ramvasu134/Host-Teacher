@@ -85,5 +85,21 @@ public class TranscriptService {
     public List<Transcript> findAll() {
         return transcriptRepository.findAll();
     }
+
+    /**
+     * Get combined transcript text for a recording
+     */
+    public String getTranscriptTextForRecording(Long recordingId) {
+        List<Transcript> transcripts = transcriptRepository.findByRecordingId(recordingId);
+        if (transcripts == null || transcripts.isEmpty()) return null;
+        StringBuilder sb = new StringBuilder();
+        for (Transcript t : transcripts) {
+            if (t.getContent() != null && !t.getContent().isBlank()) {
+                if (sb.length() > 0) sb.append(" ");
+                sb.append(t.getContent());
+            }
+        }
+        return sb.length() > 0 ? sb.toString() : null;
+    }
 }
 
