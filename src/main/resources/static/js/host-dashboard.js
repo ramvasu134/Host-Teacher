@@ -1,4 +1,4 @@
-// ===== Host Dashboard JavaScript - AiR Voices =====
+// ===== Host Dashboard JavaScript - Host Mtng =====
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {

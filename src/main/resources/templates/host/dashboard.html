@@ -12,8 +12,8 @@
     <!-- Sidebar -->
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <div class="brand-icon"><i class="fas fa-chalkboard-teacher"></i></div>
-            <span class="brand-text">Meeting Hub</span>
+            <div class="brand-icon"><i class="fas fa-video"></i></div>
+            <span class="brand-text">Host Mtng</span>
         </div>
         <ul class="sidebar-nav">
             <li class="nav-item active">
@@ -31,8 +31,10 @@
         </ul>
         <div class="sidebar-footer">
             <div class="user-info">
-                <!-- Show IPL logo if available, otherwise icon -->
-                <div class="user-avatar" th:if="${user.teacherLogo == null or #strings.isEmpty(user.teacherLogo)}"><i class="fas fa-user-tie"></i></div>
+                <!-- Show Tom Cruise profile by default, or custom logo if available -->
+                <div class="user-avatar-img" th:if="${user.teacherLogo == null or #strings.isEmpty(user.teacherLogo)}">
+                    <img src="/images/tom-cruise-profile.svg" alt="Tom Cruise Profile" class="profile-logo"/>
+                </div>
                 <div class="user-avatar-img" th:if="${user.teacherLogo != null and !#strings.isEmpty(user.teacherLogo)}">
                     <img th:src="${user.teacherLogo}" alt="Profile" class="profile-logo"/>
                 </div>

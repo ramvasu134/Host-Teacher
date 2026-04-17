@@ -1,4 +1,4 @@
-/* ===== Host Dashboard CSS - AiR Voices Style ===== */
+/* ===== Host Dashboard CSS - Host Mtng Style ===== */
 
 /* ===== CSS Variables / Themes ===== */
 :root {
@@ -115,7 +115,7 @@ body {
 .sidebar {
     width: var(--sidebar-width);
     height: 100vh;
-    background: rgba(15, 23, 42, 0.95);
+    background: rgba(62, 39, 35, 0.98);
     backdrop-filter: blur(20px);
     border-right: 1px solid var(--border-color);
     position: fixed;

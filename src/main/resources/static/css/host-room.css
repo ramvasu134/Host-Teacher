@@ -1,4 +1,4 @@
-/* ===== Host Meeting Room CSS - AiR Voices ===== */
+/* ===== Host Meeting Room CSS - Host Mtng ===== */
 
 * {
     margin: 0;
@@ -85,7 +85,7 @@ body {
     align-items: center;
     gap: 8px;
     padding: 8px 14px;
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(255, 184, 77, 0.1);
     border-radius: 10px;
     font-size: 14px;
     color: var(--accent-light);

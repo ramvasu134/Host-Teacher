@@ -1,15 +1,15 @@
 /* ===== Student Meeting Room CSS ===== */
 :root {
-    --sr-bg: #0d0d0d;
-    --sr-bg-card: #1a1a1a;
-    --sr-bg-header: #111111;
-    --sr-bg-input: #2a2a2a;
-    --sr-bg-dropdown: #1c1c1c;
-    --sr-border: rgba(255, 255, 255, 0.08);
-    --sr-text: #ffffff;
-    --sr-text-dim: #888888;
-    --sr-red: #ef4444;
-    --sr-green: #22c55e;
+    --sr-bg: #3E2723;
+    --sr-bg-card: #5D4037;
+    --sr-bg-header: #2C1810;
+    --sr-bg-input: #6D4C41;
+    --sr-bg-dropdown: #5D4037;
+    --sr-border: rgba(255, 184, 77, 0.1);
+    --sr-text: #F5E6D3;
+    --sr-text-dim: #D4C5B0;
+    --sr-red: #FF6B6B;
+    --sr-green: #8BC34A;
 }
 
 /* ===== THEMES ===== */
