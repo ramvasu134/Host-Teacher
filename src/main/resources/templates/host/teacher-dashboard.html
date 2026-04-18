@@ -809,8 +809,8 @@
             flex: 1;
             background: var(--bg-primary);
             display: flex;
-            align-items: flex-start;
-            justify-content: flex-start;
+            align-items: center;
+            justify-content: center;
             min-height: 300px;
             overflow-y: auto;
         }
@@ -818,6 +818,10 @@
         .participants-content {
             text-align: center;
             width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .no-participants {
@@ -1803,7 +1807,19 @@
 <body>
     <!-- Header Bar -->
     <header class="header-bar">
-        <div class="brand">
+        <div class="brand" style="display:flex;align-items:center;gap:10px;">
+            <div style="position:relative;cursor:pointer;width:38px;height:38px;" onclick="document.getElementById('profilePhotoInput').click();" title="Click to change profile photo">
+                <img th:if="${user.teacherLogo != null and !#strings.isEmpty(user.teacherLogo)}"
+                     th:src="${user.teacherLogo}" alt="Profile" id="headerProfileImg"
+                     style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid #6366f1;"/>
+                <img th:if="${user.teacherLogo == null or #strings.isEmpty(user.teacherLogo)}"
+                     src="/images/tom-cruise-profile.svg" alt="Profile" id="headerProfileImg"
+                     style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid #6366f1;"/>
+                <div style="position:absolute;bottom:-2px;right:-2px;background:#FFB84D;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-camera" style="font-size:8px;color:#3E2723;"></i>
+                </div>
+            </div>
+            <input type="file" id="profilePhotoInput" accept="image/*" style="display:none;" onchange="uploadProfilePhoto(this)"/>
             <div class="brand-logo" th:text="${user.displayName}">VK2</div>
         </div>
 
@@ -1826,6 +1842,10 @@
                 </button>
 
                 <div class="settings-dropdown" id="settingsDropdown">
+                    <button class="settings-item" onclick="document.getElementById('profilePhotoInput').click(); toggleSettings();">
+                        <i class="fas fa-camera"></i>
+                        <span>Change Profile Photo</span>
+                    </button>
                     <button class="settings-item" onclick="openModal('changePasswordModal')">
                         <i class="fas fa-key"></i>
                         <span>Change Password</span>
@@ -1935,10 +1955,14 @@
                 <!-- Students in Meeting Area -->
                 <div class="meeting-participants-area">
                     <div class="participants-content" id="participantsContent">
-                        <div class="no-participants">
-                            <img th:src="@{/images/air-logo.png}" alt="AiR" class="air-logo" onerror="this.style.display='none'">
-                            <div class="air-logo-fallback">
-                                <span class="logo-a">A</span><span class="logo-i">i</span><span class="logo-r">R</span>
+                        <div class="no-participants" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%;">
+                            <div style="width:120px;height:120px;border-radius:50%;overflow:hidden;border:3px solid #6366f1;margin-bottom:14px;">
+                                <img th:if="${user.teacherLogo != null and !#strings.isEmpty(user.teacherLogo)}"
+                                     th:src="${user.teacherLogo}" alt="Profile" id="meetingProfileImg"
+                                     style="width:100%;height:100%;object-fit:cover;"/>
+                                <img th:if="${user.teacherLogo == null or #strings.isEmpty(user.teacherLogo)}"
+                                     src="/images/tom-cruise-profile.svg" alt="Profile" id="meetingProfileImg"
+                                     style="width:100%;height:100%;object-fit:cover;"/>
                             </div>
                             <p>No students in meeting yet</p>
                         </div>
@@ -4088,6 +4112,28 @@ _Please login using the above credentials._`;
 
     <!-- Host Dashboard WebRTC Meeting JS (must load AFTER inline scripts) -->
     <script th:src="@{/js/host-dashboard-meeting.js}"></script>
+    <script>
+        function uploadProfilePhoto(input) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+            if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
+            if (file.size > 5 * 1024 * 1024) { alert('Image must be less than 5MB.'); return; }
+            const fd = new FormData();
+            fd.append('file', file);
+            fetch('/api/user/upload-profile-photo', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        const ts = '?t=' + Date.now();
+                        document.querySelectorAll('#headerProfileImg, #meetingProfileImg').forEach(img => img.src = data.photoUrl + ts);
+                        alert('Profile photo updated!');
+                    } else {
+                        alert(data.message || 'Upload failed');
+                    }
+                })
+                .catch(() => alert('Upload failed. Please try again.'));
+        }
+    </script>
 </body>
 </html>
 

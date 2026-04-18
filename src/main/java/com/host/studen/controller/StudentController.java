@@ -55,6 +55,15 @@ public class StudentController {
         User student = userDetails.getUser();
         model.addAttribute("user", student);
 
+        // Find the teacher for this student
+        String teacherName = student.getTeacherName();
+        List<User> teachers = userService.findByRole(Role.HOST);
+        User teacher = teachers.stream()
+                .filter(t -> t.getTeacherName().equals(teacherName))
+                .findFirst()
+                .orElse(null);
+        model.addAttribute("teacher", teacher);
+
         List<Meeting> allMeetings = meetingService.findMeetingsByParticipant(student);
         long totalJoined = allMeetings.size();
         List<Meeting> liveMeetings = meetingService.findLiveMeetings().stream()

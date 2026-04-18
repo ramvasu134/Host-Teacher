@@ -7,6 +7,28 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link th:href="@{/css/dashboard.css}" rel="stylesheet">
+    <style>
+        .teacher-profile-circle {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            margin: 0 auto 24px auto; text-align: center;
+        }
+        .teacher-profile-circle img {
+            width: 100px; height: 100px; border-radius: 50%; object-fit: cover;
+            border: 3px solid #FFB84D; box-shadow: 0 4px 20px rgba(255,184,77,0.3);
+        }
+        .teacher-profile-circle .teacher-initials {
+            width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #3E2723, #5D4037);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 32px; font-weight: 700; color: #FFB84D;
+            border: 3px solid #FFB84D; box-shadow: 0 4px 20px rgba(255,184,77,0.3);
+        }
+        .teacher-profile-circle .teacher-label {
+            margin-top: 8px; font-size: 13px; color: #94a3b8;
+        }
+        .teacher-profile-circle .teacher-name-label {
+            font-size: 16px; font-weight: 600; color: #FFB84D;
+        }
+    </style>
 </head>
 <body>
     <!-- Sidebar -->
@@ -53,6 +75,16 @@
                 </button>
             </div>
         </header>
+
+        <!-- Teacher Profile Circle -->
+        <div class="teacher-profile-circle" th:if="${teacher != null}">
+            <img th:if="${teacher.teacherLogo != null and !#strings.isEmpty(teacher.teacherLogo)}"
+                 th:src="${teacher.teacherLogo}" alt="Teacher Photo"/>
+            <div th:if="${teacher.teacherLogo == null or #strings.isEmpty(teacher.teacherLogo)}" class="teacher-initials"
+                 th:text="${#strings.substring(teacher.displayName, 0, #strings.length(teacher.displayName) > 1 ? 2 : 1).toUpperCase()}">T</div>
+            <span class="teacher-name-label" th:text="${teacher.displayName}">Teacher</span>
+            <span class="teacher-label"><i class="fas fa-chalkboard-teacher me-1"></i>Your Teacher</span>
+        </div>
 
         <!-- Stats -->
         <div class="stats-grid">
