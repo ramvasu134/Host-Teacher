@@ -6,6 +6,7 @@ import com.host.studen.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -17,5 +18,6 @@ public interface RecordingRepository extends JpaRepository<Recording, Long> {
     List<Recording> findByStatus(Recording.RecordingStatus status);
     List<Recording> findByRecordedByAndStatusNotOrderByCreatedAtDesc(User user, Recording.RecordingStatus status);
     List<Recording> findByMeetingAndStatusNotOrderByCreatedAtDesc(Meeting meeting, Recording.RecordingStatus status);
+    List<Recording> findByStatusNotAndCreatedAtBefore(Recording.RecordingStatus status, LocalDateTime before);
 }
 
