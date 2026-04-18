@@ -187,5 +187,38 @@ public class RecordingService {
     public long countByUser(User user) {
         return recordingRepository.findByRecordedByAndStatusNotOrderByCreatedAtDesc(user, Recording.RecordingStatus.DELETED).size();
     }
+
+    /**
+     * Find all recording IDs for students of a specific teacher
+     */
+    public List<Long> findAllRecordingIdsByTeacher(String teacherName) {
+        return recordingRepository.findAll().stream()
+                .filter(r -> r.getStatus() != Recording.RecordingStatus.DELETED)
+                .filter(r -> r.getRecordedBy() != null && teacherName.equals(r.getRecordedBy().getTeacherName()))
+                .map(Recording::getId)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Delete all recordings for students of a specific teacher
+     */
+    @Transactional
+    public int deleteAllRecordingsByTeacher(String teacherName) {
+        List<Recording> recordings = recordingRepository.findAll().stream()
+                .filter(r -> r.getStatus() != Recording.RecordingStatus.DELETED)
+                .filter(r -> r.getRecordedBy() != null && teacherName.equals(r.getRecordedBy().getTeacherName()))
+                .collect(java.util.stream.Collectors.toList());
+        
+        int count = 0;
+        for (Recording recording : recordings) {
+            try {
+                deleteRecording(recording.getId());
+                count++;
+            } catch (Exception e) {
+                log.error("Error deleting recording {}: {}", recording.getId(), e.getMessage());
+            }
+        }
+        return count;
+    }
 }
 

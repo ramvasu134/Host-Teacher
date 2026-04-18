@@ -809,8 +809,9 @@
             flex: 1;
             background: var(--bg-primary);
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             min-height: 300px;
             overflow-y: auto;
         }
@@ -1694,6 +1695,166 @@
             font-size: 14px;
         }
 
+        /* Confirmation Modal */
+        #confirmActionModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+        .confirm-modal-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+        }
+        .confirm-modal-box {
+            position: relative;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            border: 1px solid var(--border-color);
+            animation: modalPop 0.2s ease;
+        }
+        @keyframes modalPop {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .confirm-modal-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 24px;
+            color: white;
+        }
+        .confirm-modal-box h3 {
+            margin: 0 0 12px;
+            color: var(--text-primary);
+            font-size: 20px;
+        }
+        .confirm-modal-box p {
+            margin: 0 0 24px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .confirm-modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        .btn-confirm-cancel {
+            padding: 10px 24px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-primary);
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-confirm-cancel:hover {
+            background: var(--bg-card);
+        }
+        .btn-confirm-ok {
+            padding: 10px 24px;
+            border: none;
+            background: #6366f1;
+            color: white;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-confirm-ok:hover {
+            opacity: 0.9;
+        }
+
+        /* Toast Notification System */
+        #toastContainer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 11000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast-notification {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
+            max-width: 450px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            animation: toastSlideIn 0.3s ease;
+            pointer-events: auto;
+        }
+        @keyframes toastSlideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes toastSlideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        .toast-notification.toast-exit {
+            animation: toastSlideOut 0.3s ease forwards;
+        }
+        .toast-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .toast-icon.success { background: rgba(34,197,94,0.2); color: #22c55e; }
+        .toast-icon.error { background: rgba(239,68,68,0.2); color: #ef4444; }
+        .toast-icon.warning { background: rgba(245,158,11,0.2); color: #f59e0b; }
+        .toast-icon.info { background: rgba(99,102,241,0.2); color: #6366f1; }
+        .toast-content {
+            flex: 1;
+        }
+        .toast-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+        .toast-message {
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .toast-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 14px;
+        }
+        .toast-close:hover {
+            color: var(--text-primary);
+        }
+
         /* Transcript Modal */
         .transcript-modal-overlay {
             position: fixed;
@@ -1805,6 +1966,9 @@
     </style>
 </head>
 <body>
+    <!-- Toast Notification Container -->
+    <div id="toastContainer"></div>
+
     <!-- Header Bar -->
     <header class="header-bar">
         <div class="brand" style="display:flex;align-items:center;gap:10px;">
@@ -1954,17 +2118,23 @@
 
                 <!-- Students in Meeting Area -->
                 <div class="meeting-participants-area">
+                    <!-- Teacher Profile - Always Visible -->
+                    <div id="teacherProfileSection" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 0;">
+                        <div style="width:100px;height:100px;border-radius:50%;overflow:hidden;border:3px solid #6366f1;margin-bottom:8px;">
+                            <img th:if="${user.teacherLogo != null and !#strings.isEmpty(user.teacherLogo)}"
+                                 th:src="${user.teacherLogo}" alt="Profile" id="meetingProfileImg"
+                                 style="width:100%;height:100%;object-fit:cover;"/>
+                            <img th:if="${user.teacherLogo == null or #strings.isEmpty(user.teacherLogo)}"
+                                 src="/images/tom-cruise-profile.svg" alt="Profile" id="meetingProfileImg"
+                                 style="width:100%;height:100%;object-fit:cover;"/>
+                        </div>
+                        <span style="color:#8b949e;font-size:12px;" th:text="${user.displayName} + ' (Host)'">Host</span>
+                    </div>
+
+                    <!-- Students Content -->
                     <div class="participants-content" id="participantsContent">
-                        <div class="no-participants" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%;">
-                            <div style="width:120px;height:120px;border-radius:50%;overflow:hidden;border:3px solid #6366f1;margin-bottom:14px;">
-                                <img th:if="${user.teacherLogo != null and !#strings.isEmpty(user.teacherLogo)}"
-                                     th:src="${user.teacherLogo}" alt="Profile" id="meetingProfileImg"
-                                     style="width:100%;height:100%;object-fit:cover;"/>
-                                <img th:if="${user.teacherLogo == null or #strings.isEmpty(user.teacherLogo)}"
-                                     src="/images/tom-cruise-profile.svg" alt="Profile" id="meetingProfileImg"
-                                     style="width:100%;height:100%;object-fit:cover;"/>
-                            </div>
-                            <p>No students in meeting yet</p>
+                        <div class="no-participants" id="noParticipantsMsg" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;">
+                            <p style="color:#6e7681;font-size:14px;">No students in meeting yet</p>
                         </div>
                     </div>
                 </div>
@@ -2974,14 +3144,143 @@
         }
 
         function saveAllRecordings() {
-            alert('Downloading all recordings...');
+            // Get all download links
+            const downloadLinks = document.querySelectorAll('.btn-download-recording');
+            if (downloadLinks.length === 0) {
+                toastWarning('No recordings available to save.', 'No Recordings');
+                return;
+            }
+
+            openConfirmModal(
+                'Save All Recordings',
+                `Are you sure you want to download all ${downloadLinks.length} recording(s)?`,
+                'fas fa-download',
+                '#22c55e',
+                function() {
+                    closeConfirmModal();
+                    let index = 0;
+                    const downloadNext = function() {
+                        if (index < downloadLinks.length) {
+                            const link = downloadLinks[index];
+                            const a = document.createElement('a');
+                            a.href = link.href;
+                            a.download = '';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            index++;
+                            setTimeout(downloadNext, 500); // Delay between downloads
+                        } else {
+                            toastSuccess('All recordings have been downloaded!', 'Download Complete');
+                        }
+                    };
+                    downloadNext();
+                }
+            );
         }
 
         function clearAllRecordings() {
-            if (confirm('Are you sure you want to delete all recordings?')) {
-                alert('Clearing all recordings...');
+            const recordingRows = document.querySelectorAll('.recording-row-2col');
+            if (recordingRows.length === 0) {
+                toastWarning('No recordings available to delete.', 'No Recordings');
+                return;
             }
+
+            openConfirmModal(
+                'Delete All Recordings',
+                `Are you sure you want to delete ALL ${recordingRows.length} recording(s)? This action cannot be undone!`,
+                'fas fa-trash-alt',
+                '#ef4444',
+                function() {
+                    closeConfirmModal();
+                    fetch('/api/meeting/recordings/all', { method: 'DELETE' })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success) {
+                                toastSuccess(data.message, 'Deleted');
+                                setTimeout(() => location.reload(), 1500);
+                            } else {
+                                toastError('Failed to delete: ' + (data.error || 'Unknown error'), 'Delete Failed');
+                            }
+                        })
+                        .catch(err => toastError('Error: ' + err.message, 'Error'));
+                }
+            );
         }
+
+        // Confirmation Modal Functions
+        function openConfirmModal(title, message, icon, iconColor, onConfirm) {
+            let modal = document.getElementById('confirmActionModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'confirmActionModal';
+                modal.innerHTML = `
+                    <div class="confirm-modal-overlay" onclick="closeConfirmModal()"></div>
+                    <div class="confirm-modal-box">
+                        <div class="confirm-modal-icon" id="confirmModalIcon"><i class="fas fa-question"></i></div>
+                        <h3 id="confirmModalTitle">Confirm Action</h3>
+                        <p id="confirmModalMessage">Are you sure?</p>
+                        <div class="confirm-modal-actions">
+                            <button class="btn-confirm-cancel" onclick="closeConfirmModal()">Cancel</button>
+                            <button class="btn-confirm-ok" id="confirmModalOkBtn">Confirm</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            document.getElementById('confirmModalTitle').textContent = title;
+            document.getElementById('confirmModalMessage').textContent = message;
+            document.getElementById('confirmModalIcon').innerHTML = '<i class="' + icon + '"></i>';
+            document.getElementById('confirmModalIcon').style.background = iconColor;
+            document.getElementById('confirmModalOkBtn').onclick = onConfirm;
+            document.getElementById('confirmModalOkBtn').style.background = iconColor;
+            modal.style.display = 'flex';
+        }
+
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirmActionModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        // Unified Toast Notification System
+        function showToast(type, title, message, duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const icons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                warning: 'fas fa-exclamation-triangle',
+                info: 'fas fa-info-circle'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification';
+            toast.innerHTML = `
+                <div class="toast-icon ${type}"><i class="${icons[type] || icons.info}"></i></div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="closeToast(this.parentElement)"><i class="fas fa-times"></i></button>
+            `;
+            container.appendChild(toast);
+
+            // Auto-remove after duration
+            setTimeout(() => closeToast(toast), duration);
+        }
+
+        function closeToast(toast) {
+            if (!toast || toast.classList.contains('toast-exit')) return;
+            toast.classList.add('toast-exit');
+            setTimeout(() => toast.remove(), 300);
+        }
+
+        // Shorthand toast functions
+        function toastSuccess(message, title = 'Success') { showToast('success', title, message); }
+        function toastError(message, title = 'Error') { showToast('error', title, message, 6000); }
+        function toastWarning(message, title = 'Warning') { showToast('warning', title, message, 5000); }
+        function toastInfo(message, title = 'Info') { showToast('info', title, message); }
 
         function dashTogglePlay(audioId, btn) {
             const audio = document.getElementById(audioId);
@@ -2999,16 +3298,24 @@
         }
 
         function deleteRecording(id) {
-            if (confirm('Are you sure you want to delete this recording and its transcript?')) {
-                fetch('/api/meeting/recording/' + id, { method: 'DELETE' })
-                    .then(response => {
-                        if (response.ok) {
-                            location.reload();
-                        } else {
-                            alert('Failed to delete recording');
-                        }
-                    });
-            }
+            openConfirmModal(
+                'Delete Recording',
+                'Are you sure you want to delete this recording and its transcript? This action cannot be undone.',
+                'fas fa-trash',
+                '#ef4444',
+                function() {
+                    closeConfirmModal();
+                    fetch('/api/meeting/recording/' + id, { method: 'DELETE' })
+                        .then(response => {
+                            if (response.ok) {
+                                toastSuccess('Recording deleted successfully', 'Deleted');
+                                setTimeout(() => location.reload(), 1000);
+                            } else {
+                                toastError('Failed to delete recording', 'Delete Failed');
+                            }
+                        });
+                }
+            );
         }
 
         function viewTranscript(recordingId) {
@@ -3040,17 +3347,17 @@
                         `;
                         document.body.appendChild(modal);
                     } else {
-                        alert('No transcript available for this recording');
+                        toastInfo('No transcript available for this recording', 'No Transcript');
                     }
                 })
                 .catch(err => {
-                    alert('Error loading transcript: ' + err.message);
+                    toastError('Error loading transcript: ' + err.message, 'Load Error');
                 });
         }
 
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
-                alert('Transcript copied to clipboard!');
+                toastSuccess('Transcript copied to clipboard!', 'Copied');
             });
         }
 
@@ -3318,11 +3625,22 @@ _Please login using the above credentials._`;
         function doCall(btn) {
             const id = btn.dataset.id;
             const name = btn.dataset.name;
-            if (!confirm('Send call notification to ' + name + '?')) return;
-            fetch('/api/host/students/' + id + '/call', { method: 'POST' })
-                .then(r => r.json())
-                .then(d => showToast(d.message || 'Notification sent to ' + name, d.success ? 'success' : 'error'))
-                .catch(() => showToast('Network error. Try again.', 'error'));
+            openConfirmModal(
+                'Call Student',
+                'Send call notification to ' + name + '?',
+                'fas fa-phone',
+                '#22c55e',
+                function() {
+                    closeConfirmModal();
+                    fetch('/api/host/students/' + id + '/call', { method: 'POST' })
+                        .then(r => r.json())
+                        .then(d => {
+                            if (d.success) toastSuccess(d.message || 'Notification sent to ' + name, 'Call Sent');
+                            else toastError(d.message || 'Failed to send call', 'Call Failed');
+                        })
+                        .catch(() => toastError('Network error. Try again.', 'Error'));
+                }
+            );
         }
 
         function doEdit(btn) {
@@ -3372,14 +3690,26 @@ _Please login using the above credentials._`;
             const isBlock = !btn.classList.contains('btn-unblock');
             const action = isBlock ? 'block' : 'unblock';
             const msg = isBlock ? 'Block ' + name + '? They will not be able to login.' : 'Unblock ' + name + '?';
-            if (!confirm(msg)) return;
-            fetch('/api/host/students/' + id + '/' + action, { method: 'POST' })
-                .then(r => r.json())
-                .then(d => {
-                    showToast(d.message || (isBlock ? 'Student blocked' : 'Student unblocked'), d.success ? 'success' : 'error');
-                    if (d.success) setTimeout(() => location.reload(), 1200);
-                })
-                .catch(() => showToast('Network error. Try again.', 'error'));
+            openConfirmModal(
+                isBlock ? 'Block Student' : 'Unblock Student',
+                msg,
+                isBlock ? 'fas fa-ban' : 'fas fa-check-circle',
+                isBlock ? '#ef4444' : '#22c55e',
+                function() {
+                    closeConfirmModal();
+                    fetch('/api/host/students/' + id + '/' + action, { method: 'POST' })
+                        .then(r => r.json())
+                        .then(d => {
+                            if (d.success) {
+                                toastSuccess(d.message || (isBlock ? 'Student blocked' : 'Student unblocked'), isBlock ? 'Blocked' : 'Unblocked');
+                                setTimeout(() => location.reload(), 1200);
+                            } else {
+                                toastError(d.message || 'Action failed', 'Error');
+                            }
+                        })
+                        .catch(() => toastError('Network error. Try again.', 'Error'));
+                }
+            );
         }
 
         function doMute(btn) {
@@ -3387,25 +3717,36 @@ _Please login using the above credentials._`;
             const name = btn.dataset.name;
             fetch('/api/host/students/' + id + '/mute', { method: 'POST' })
                 .then(r => r.json())
-                .then(d => showToast(d.message || name + ' muted', d.success ? 'success' : 'warning'))
-                .catch(() => showToast('Network error. Try again.', 'error'));
+                .then(d => {
+                    if (d.success) toastSuccess(d.message || name + ' muted', 'Muted');
+                    else toastWarning(d.message || 'Mute failed', 'Warning');
+                })
+                .catch(() => toastError('Network error. Try again.', 'Error'));
         }
 
         function doDelete(btn) {
             const id = btn.dataset.id;
             const name = btn.dataset.name;
-            if (!confirm('Delete student "' + name + '"? This cannot be undone!')) return;
-            fetch('/api/host/students/' + id, { method: 'DELETE' })
-                .then(r => r.json())
-                .then(d => {
-                    showToast(d.message || 'Student deleted', d.success ? 'success' : 'error');
-                    if (d.success) {
-                        const row = btn.closest('.student-row');
-                        if (row) row.style.opacity = '0';
-                        setTimeout(() => location.reload(), 1000);
-                    }
-                })
-                .catch(() => showToast('Network error. Try again.', 'error'));
+            openConfirmModal(
+                'Delete Student',
+                'Delete student "' + name + '"? This cannot be undone!',
+                'fas fa-user-times',
+                '#ef4444',
+                function() {
+                    closeConfirmModal();
+                    fetch('/api/host/students/' + id, { method: 'DELETE' })
+                        .then(r => r.json())
+                        .then(d => {
+                            if (d.success) {
+                                toastSuccess(d.message || 'Student deleted', 'Deleted');
+                                setTimeout(() => location.reload(), 1200);
+                            } else {
+                                toastError(d.message || 'Delete failed', 'Error');
+                            }
+                        })
+                        .catch(() => toastError('Network error. Try again.', 'Error'));
+                }
+            );
         }
 
         function editStudent(id, name, username, email) {
@@ -3491,7 +3832,7 @@ _Please login using the above credentials._`;
                 })
                 .catch(err => {
                     console.error('Error accessing microphone:', err);
-                    alert('Could not access microphone. Please check permissions.');
+                    toastError('Could not access microphone. Please check permissions.', 'Microphone Error');
                 });
         }
 
@@ -3592,30 +3933,56 @@ _Please login using the above credentials._`;
         function viewTranscript(id) {
             const transcript = allTranscripts.find(t => t.id === id);
             if (transcript) {
-                alert('Transcript:\n\n' + transcript.content);
+                // Show in a modal instead of alert
+                const modal = document.createElement('div');
+                modal.className = 'transcript-modal-overlay';
+                modal.innerHTML = `
+                    <div class="transcript-modal-content">
+                        <div class="transcript-modal-header">
+                            <h3><i class="fas fa-file-alt"></i> Transcript</h3>
+                            <button onclick="this.closest('.transcript-modal-overlay').remove()"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="transcript-modal-body">
+                            <pre style="white-space: pre-wrap; font-family: inherit;">${transcript.content}</pre>
+                        </div>
+                        <div class="transcript-modal-footer">
+                            <button onclick="copyTranscript(\`${transcript.content.replace(/`/g, '\\`')}\`); this.closest('.transcript-modal-overlay').remove();"><i class="fas fa-copy"></i> Copy</button>
+                            <button onclick="this.closest('.transcript-modal-overlay').remove()">Close</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
             }
         }
 
         function copyTranscript(content) {
             navigator.clipboard.writeText(content).then(() => {
-                alert('Transcript copied to clipboard!');
+                toastSuccess('Transcript copied to clipboard!', 'Copied');
             }).catch(err => {
                 console.error('Copy failed:', err);
             });
         }
 
         function deleteTranscript(id) {
-            if (confirm('Delete this transcript?')) {
-                fetch('/api/host/transcripts/' + id, { method: 'DELETE' })
-                    .then(response => {
-                        if (response.ok) {
-                            loadTranscripts();
-                        } else {
-                            alert('Failed to delete transcript');
-                        }
-                    })
-                    .catch(err => alert('Error: ' + err));
-            }
+            openConfirmModal(
+                'Delete Transcript',
+                'Are you sure you want to delete this transcript?',
+                'fas fa-trash',
+                '#ef4444',
+                function() {
+                    closeConfirmModal();
+                    fetch('/api/host/transcripts/' + id, { method: 'DELETE' })
+                        .then(response => {
+                            if (response.ok) {
+                                toastSuccess('Transcript deleted', 'Deleted');
+                                loadTranscripts();
+                            } else {
+                                toastError('Failed to delete transcript', 'Delete Failed');
+                            }
+                        })
+                        .catch(err => toastError('Error: ' + err, 'Error'));
+                }
+            );
         }
 
 
@@ -3628,7 +3995,7 @@ _Please login using the above credentials._`;
             const toTime   = document.getElementById('toTime').value;
 
             if (!text || !fromDate || !fromTime) {
-                alert('Please fill in Schedule Text, From Date, and From Time.');
+                toastWarning('Please fill in Schedule Text, From Date, and From Time.', 'Missing Fields');
                 return;
             }
 
@@ -3649,14 +4016,14 @@ _Please login using the above credentials._`;
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Schedule created and notifications sent to all students!');
+                    toastSuccess('Schedule created and notifications sent to all students!', 'Schedule Created');
                     closeModal('scheduleModal');
                     document.getElementById('scheduleText').value = '';
                 } else {
-                    alert('Error: ' + data.message);
+                    toastError('Error: ' + data.message, 'Schedule Error');
                 }
             })
-            .catch(err => alert('Error: ' + err));
+            .catch(err => toastError('Error: ' + err, 'Error'));
         }
     </script>
 
@@ -4116,8 +4483,8 @@ _Please login using the above credentials._`;
         function uploadProfilePhoto(input) {
             if (!input.files || !input.files[0]) return;
             const file = input.files[0];
-            if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return; }
-            if (file.size > 5 * 1024 * 1024) { alert('Image must be less than 5MB.'); return; }
+            if (!file.type.startsWith('image/')) { toastError('Please select an image file.', 'Invalid File'); return; }
+            if (file.size > 5 * 1024 * 1024) { toastError('Image must be less than 5MB.', 'File Too Large'); return; }
             const fd = new FormData();
             fd.append('file', file);
             fetch('/api/user/upload-profile-photo', { method: 'POST', body: fd })
@@ -4126,12 +4493,12 @@ _Please login using the above credentials._`;
                     if (data.success) {
                         const ts = '?t=' + Date.now();
                         document.querySelectorAll('#headerProfileImg, #meetingProfileImg').forEach(img => img.src = data.photoUrl + ts);
-                        alert('Profile photo updated!');
+                        toastSuccess('Profile photo updated!', 'Photo Updated');
                     } else {
-                        alert(data.message || 'Upload failed');
+                        toastError(data.message || 'Upload failed', 'Upload Failed');
                     }
                 })
-                .catch(() => alert('Upload failed. Please try again.'));
+                .catch(() => toastError('Upload failed. Please try again.', 'Upload Error'));
         }
     </script>
 </body>

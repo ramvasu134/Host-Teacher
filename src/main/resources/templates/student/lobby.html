@@ -439,10 +439,10 @@
                                 <div class="sr-rec-item-name"><i class="fas fa-file-video" style="color:#38bdf8;margin-right:8px;"></i>${escHtml(rec.fileName)}</div>
                                 <div class="sr-rec-item-meta">${escHtml(rec.createdAt)} · ${escHtml(rec.meetingTitle)}</div>
                             </div>
-                            <div class="sr-rec-item-btns">
-                                <button class="sr-rec-item-btn sr-rec-item-play" onclick="lobbyTogglePlay('${audioId}', this)"><i class="fas fa-play"></i> Play</button>
-                                <a href="/api/meeting/recording/${rec.id}/download" class="sr-rec-item-btn sr-rec-item-dl"><i class="fas fa-download"></i> Download</a>
-                                <button class="sr-rec-item-btn sr-rec-item-del" onclick="srDeleteRecording(${rec.id}, this)"><i class="fas fa-trash"></i> Delete</button>
+                            <div class="sr-rec-item-btns" style="display:flex;gap:8px;flex-wrap:nowrap;">
+                                <button class="sr-rec-item-btn sr-rec-item-play" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;border:none;font-size:12px;font-weight:600;white-space:nowrap;background:#2563eb;color:#fff;cursor:pointer;" onclick="lobbyTogglePlay('${audioId}', this)"><i class="fas fa-play"></i> Play</button>
+                                <a href="/api/meeting/recording/${rec.id}/download" class="sr-rec-item-btn sr-rec-item-dl" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;border:none;font-size:12px;font-weight:600;white-space:nowrap;background:#475569;color:#f1f5f9;text-decoration:none;cursor:pointer;"><i class="fas fa-download"></i> Download</a>
+                                <button class="sr-rec-item-btn sr-rec-item-del" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;border:none;font-size:12px;font-weight:600;white-space:nowrap;background:#dc2626;color:#fff;cursor:pointer;" onclick="srDeleteRecording(${rec.id}, this)"><i class="fas fa-trash"></i> Delete</button>
                             </div>
                             <audio id="${audioId}" src="/api/meeting/recording/${rec.id}/play" preload="none" onended="lobbyResetPlay('${audioId}')" style="display:none;"></audio>`;
                         list.appendChild(item);

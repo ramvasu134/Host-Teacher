@@ -277,48 +277,51 @@
          style="display:none;"></div>
 
     <!-- ===== SAVE RECORDING DIALOG ===== -->
-    <div class="sr-modal-overlay" id="srSaveRecOverlay"></div>
-    <div class="sr-pwd-modal" id="srSaveRecModal" style="max-width:420px;">
-        <div class="sr-pwd-header">
-            <span class="sr-pwd-title"><i class="fas fa-microphone" style="color:#22c55e;margin-right:8px;"></i>Recording Ready</span>
+    <div class="sr-modal-overlay" id="srSaveRecOverlay" onclick="srCloseSaveDialog()"></div>
+    <div class="sr-pwd-modal" id="srSaveRecModal" style="max-width:320px;">
+        <div class="sr-pwd-header" style="padding:16px 20px;">
+            <span class="sr-pwd-title" style="font-size:15px;"><i class="fas fa-microphone" style="color:#22c55e;margin-right:8px;"></i>Recording Saved</span>
         </div>
-        <div class="sr-pwd-body" style="text-align:center; padding: 20px 24px;">
-            <div style="font-size:48px; margin-bottom:12px;">🎙️</div>
-            <p id="srSaveRecInfo" style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Your audio clip is ready.</p>
-            <div style="display:flex; flex-direction:column; gap:10px;">
+        <div class="sr-pwd-body" style="text-align:center; padding: 16px 20px;">
+            <p id="srSaveRecInfo" style="color:#94a3b8; font-size:13px; margin-bottom:16px;">Your clip was saved to the server.<br/>Want a local copy too?</p>
+            <div style="display:flex; gap:10px; justify-content:center;">
                 <button id="srSaveRecDownloadBtn"
-                    style="padding:12px 20px; background:linear-gradient(135deg,#6366f1,#8b5cf6);
-                           color:#fff; border:none; border-radius:10px; font-size:14px;
-                           font-weight:600; cursor:pointer; display:flex; align-items:center;
-                           justify-content:center; gap:8px;">
-                    <i class="fas fa-download"></i> Save to My Device
+                    style="padding:10px 20px; background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                           color:#fff; border:none; border-radius:8px; font-size:13px;
+                           font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-download"></i> Save
                 </button>
-                <button id="srSaveRecUploadBtn"
-                    style="padding:12px 20px; background:rgba(34,197,94,.15);
-                           color:#22c55e; border:1px solid rgba(34,197,94,.35);
-                           border-radius:10px; font-size:14px; font-weight:600;
-                           cursor:pointer; display:flex; align-items:center;
-                           justify-content:center; gap:8px;">
-                    <i class="fas fa-cloud-upload-alt"></i> Save to Server (Teacher can play)
-                </button>
-                <button id="srSaveRecBothBtn"
-                    style="padding:12px 20px; background:rgba(99,102,241,.15);
-                           color:#818cf8; border:1px solid rgba(99,102,241,.3);
-                           border-radius:10px; font-size:14px; font-weight:600;
-                           cursor:pointer; display:flex; align-items:center;
-                           justify-content:center; gap:8px;">
-                    <i class="fas fa-check-double"></i> Save Both
-                </button>
-                <button onclick="srDiscardRecording()"
-                    style="padding:10px 20px; background:none;
-                           color:#64748b; border:1px solid rgba(100,116,139,.25);
-                           border-radius:10px; font-size:13px; cursor:pointer;">
-                    <i class="fas fa-trash-alt"></i> Discard
+                <button onclick="srCloseSaveDialog()"
+                    style="padding:10px 20px; background:rgba(100,116,139,.15);
+                           color:#94a3b8; border:1px solid rgba(100,116,139,.25);
+                           border-radius:8px; font-size:13px; cursor:pointer;">
+                    No Thanks
                 </button>
             </div>
         </div>
-        <div id="srSaveRecStatus" style="padding:0 24px 16px; font-size:13px; color:#94a3b8; text-align:center; display:none;"></div>
     </div>
+
+    <!-- ===== CONFIRM DIALOG ===== -->
+    <div class="sr-modal-overlay" id="srConfirmOverlay" style="display:none;"></div>
+    <div class="sr-pwd-modal" id="srConfirmModal" style="max-width:320px;display:none;">
+        <div class="sr-pwd-header" style="padding:14px 18px;">
+            <span class="sr-pwd-title" style="font-size:14px;" id="srConfirmTitle">Confirm</span>
+        </div>
+        <div class="sr-pwd-body" style="text-align:center; padding: 16px 18px;">
+            <p id="srConfirmMsg" style="color:#94a3b8; font-size:13px; margin-bottom:16px;">Are you sure?</p>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button id="srConfirmYes" style="padding:9px 20px; background:#ef4444; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">
+                    Yes
+                </button>
+                <button onclick="srCloseConfirm()" style="padding:9px 20px; background:rgba(100,116,139,.15); color:#94a3b8; border:1px solid rgba(100,116,139,.25); border-radius:8px; font-size:13px; cursor:pointer;">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TOAST CONTAINER ===== -->
+    <div id="srToastContainer" style="position:fixed;top:16px;right:16px;z-index:11000;display:flex;flex-direction:column;gap:8px;"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>

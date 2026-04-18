@@ -134,6 +134,7 @@ public class UserApiController {
 
     /**
      * Upload profile photo for the currently authenticated teacher (HOST).
+     * Deletes old photo file when replacing with a new one.
      */
     @PostMapping("/upload-profile-photo")
     public ResponseEntity<Map<String, Object>> uploadProfilePhoto(
@@ -157,6 +158,19 @@ public class UserApiController {
             }
 
             User user = userDetails.getUser();
+            
+            // Delete old profile photo if exists
+            String oldLogo = user.getTeacherLogo();
+            if (oldLogo != null && oldLogo.startsWith("/api/user/profile-photo/")) {
+                String oldFileName = oldLogo.substring("/api/user/profile-photo/".length());
+                Path oldFilePath = Paths.get("profile-photos").resolve(oldFileName);
+                try {
+                    Files.deleteIfExists(oldFilePath);
+                } catch (IOException ignored) {
+                    // Ignore deletion errors
+                }
+            }
+            
             String ext = getFileExtension(file.getOriginalFilename());
             String fileName = "profile-" + user.getId() + "-" + UUID.randomUUID().toString().substring(0, 8) + ext;
 

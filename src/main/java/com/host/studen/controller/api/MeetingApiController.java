@@ -191,5 +191,36 @@ public class MeetingApiController {
             return ResponseEntity.badRequest().body(response);
         }
     }
+
+    /**
+     * Get all recording IDs for the host's students (for bulk operations)
+     */
+    @GetMapping("/recordings/all")
+    public ResponseEntity<List<Long>> getAllRecordingIds(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        User host = userDetails.getUser();
+        List<Long> recordingIds = recordingService.findAllRecordingIdsByTeacher(host.getTeacherName());
+        return ResponseEntity.ok(recordingIds);
+    }
+
+    /**
+     * Delete all recordings for the host's students
+     */
+    @DeleteMapping("/recordings/all")
+    public ResponseEntity<Map<String, Object>> deleteAllRecordings(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        try {
+            User host = userDetails.getUser();
+            int deletedCount = recordingService.deleteAllRecordingsByTeacher(host.getTeacherName());
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("deletedCount", deletedCount);
+            response.put("message", deletedCount + " recordings deleted successfully");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
 }
 

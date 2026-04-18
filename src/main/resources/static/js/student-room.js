@@ -451,25 +451,11 @@ function srShowSaveDialog(blob, durationSecs) {
     _pendingDuration = durationSecs;
 
     const info = document.getElementById('srSaveRecInfo');
-    if (info) info.textContent = 'Audio clip ready — ' + durationSecs + ' second(s). How would you like to save it?';
+    if (info) info.innerHTML = 'Your ' + durationSecs + 's clip was saved to server.<br/>Want a local copy too?';
 
-    const status = document.getElementById('srSaveRecStatus');
-    if (status) { status.textContent = ''; status.style.display = 'none'; }
-
-    // Reset button states
-    ['srSaveRecDownloadBtn','srSaveRecUploadBtn','srSaveRecBothBtn'].forEach(id => {
-        const b = document.getElementById(id);
-        if (b) { b.disabled = false; b.style.opacity = '1'; }
-    });
-
-    // Wire up buttons
-    const dlBtn   = document.getElementById('srSaveRecDownloadBtn');
-    const ulBtn   = document.getElementById('srSaveRecUploadBtn');
-    const bothBtn = document.getElementById('srSaveRecBothBtn');
-
-    if (dlBtn)   dlBtn.onclick   = () => { srDownloadBlob(_pendingBlob, _pendingDuration); srCloseSaveDialog(); };
-    if (ulBtn)   ulBtn.onclick   = () => srUploadOnly(_pendingBlob, _pendingDuration);
-    if (bothBtn) bothBtn.onclick = () => srSaveBoth(_pendingBlob, _pendingDuration);
+    // Wire up download button
+    const dlBtn = document.getElementById('srSaveRecDownloadBtn');
+    if (dlBtn) dlBtn.onclick = () => { srDownloadBlob(_pendingBlob, _pendingDuration); srCloseSaveDialog(); };
 
     document.getElementById('srSaveRecOverlay').classList.add('active');
     document.getElementById('srSaveRecModal').classList.add('open');
@@ -656,26 +642,28 @@ function srLoadRecordings() {
                 item.className = 'sr-rec-item';
                 const audioId = 'sr-audio-' + rec.id;
                 item.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; width:100%; align-items:center; margin-bottom: 12px;">
-                        <div style="font-size:14px; color:#bbb;">
-                            #${counter++} <i class="fas fa-hourglass-half" style="margin:0 4px"></i>${dur} &nbsp;<i class="fas fa-calendar-alt" style="margin:0 4px"></i>${escHtml(rec.createdAt)}
+                    <div style="display:flex; justify-content:space-between; width:100%; align-items:center; margin-bottom: 10px;">
+                        <div style="font-size:13px; color:#94a3b8;">
+                            <strong>#${counter++}</strong> &nbsp;
+                            <i class="fas fa-clock" style="margin:0 4px;color:#6366f1;"></i>${dur} &nbsp;
+                            <i class="fas fa-calendar-alt" style="margin:0 4px;color:#6366f1;"></i>${escHtml(rec.createdAt)}
                         </div>
-                        <button class="sr-rec-item-btn sr-rec-item-del" onclick="srDeleteRecording(${rec.id}, this)" style="padding:5px 8px;">
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+                        <button class="sr-rec-item-btn sr-rec-item-play" onclick="srTogglePlay('${audioId}', this)" title="Play">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <a href="/api/meeting/recording/${rec.id}/download" class="sr-rec-item-btn sr-rec-item-dl" download title="Download">
+                            <i class="fas fa-download"></i>
+                        </a>
+                        <button class="sr-rec-item-btn sr-rec-item-del" onclick="srDeleteRecording(${rec.id}, this)" title="Delete">
                             <i class="fas fa-trash"></i>
                         </button>
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                        <button class="sr-rec-item-btn sr-rec-item-play" onclick="srTogglePlay('${audioId}', this)" style="display:inline-flex;align-items:center;gap:4px;">
-                            <i class="fas fa-play"></i> Play
-                        </button>
-                        <a href="/api/meeting/recording/${rec.id}/download" class="sr-rec-item-btn" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;">
-                            <i class="fas fa-download"></i> Download
-                        </a>
                     </div>
                     <audio id="${audioId}" src="/api/meeting/recording/${rec.id}/play" preload="none"
                            onended="srResetPlayBtn('${audioId}')"
                            style="display:none;width:100%;margin-top:8px;"></audio>
-                    ${rec.transcriptContent ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(255,255,255,0.05);border-radius:8px;font-size:12px;color:#ccc;"><i class=&quot;fas fa-file-alt&quot; style=&quot;margin-right:4px;color:#FFB84D;&quot;></i>' + escHtml(rec.transcriptContent) + '</div>' : ''}`;
+                    ${rec.transcriptContent ? '<div style="margin-top:6px;padding:8px 10px;background:rgba(99,102,241,0.1);border-left:3px solid #6366f1;border-radius:6px;font-size:12px;color:#d1d5db;"><i class="fas fa-file-alt" style="margin-right:6px;color:#FFB84D;"></i>' + escHtml(rec.transcriptContent) + '</div>' : ''}`;
                 list.appendChild(item);
             });
         })
@@ -683,11 +671,20 @@ function srLoadRecordings() {
 }
 
 function srDeleteRecording(id, btn) {
-    if (!confirm('Delete this recording?')) return;
-    fetch(`/api/user/recordings/${id}`, { method: 'DELETE' })
-        .then(r => r.json())
-        .then(d => { if (d.success) { btn.closest('.sr-rec-item').remove(); srCheckEmpty(); } })
-        .catch(() => {});
+    srShowConfirm('Delete Recording', 'Delete this recording?', function() {
+        fetch(`/api/user/recordings/${id}`, { method: 'DELETE' })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    btn.closest('.sr-rec-item').remove();
+                    srCheckEmpty();
+                    srToast('Recording deleted', 'success');
+                } else {
+                    srToast('Failed to delete', 'error');
+                }
+            })
+            .catch(() => srToast('Error deleting recording', 'error'));
+    });
 }
 
 function srCheckEmpty() {
@@ -697,20 +694,84 @@ function srCheckEmpty() {
 }
 
 function srSaveAllRecordings() {
-    document.querySelectorAll('#srRecordingsList .sr-rec-item-dl').forEach(a => {
-        const link = document.createElement('a');
-        link.href     = a.href;
-        link.download = '';
-        link.click();
+    const links = document.querySelectorAll('#srRecordingsList .sr-rec-item-dl');
+    if (links.length === 0) {
+        srToast('No recordings to save', 'warning');
+        return;
+    }
+    links.forEach((a, i) => {
+        setTimeout(() => {
+            const link = document.createElement('a');
+            link.href = a.href;
+            link.download = '';
+            link.click();
+        }, i * 400);
     });
+    srToast('Downloading ' + links.length + ' recording(s)', 'success');
 }
 
 function srClearAllRecordings() {
-    if (!confirm('Delete ALL recordings? This cannot be undone.')) return;
     const btns = [...document.querySelectorAll('#srRecordingsList .sr-rec-item-del')];
-    btns.forEach(btn => srDeleteRecording(
-        parseInt(btn.getAttribute('onclick').match(/\d+/)[0]), btn
-    ));
+    if (btns.length === 0) {
+        srToast('No recordings to delete', 'warning');
+        return;
+    }
+    srShowConfirm('Delete All', 'Delete ALL ' + btns.length + ' recordings? This cannot be undone.', function() {
+        let count = 0;
+        btns.forEach(btn => {
+            const onclick = btn.getAttribute('onclick');
+            const match = onclick.match(/\d+/);
+            if (match) {
+                const id = parseInt(match[0]);
+                fetch(`/api/user/recordings/${id}`, { method: 'DELETE' })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.success) {
+                            btn.closest('.sr-rec-item').remove();
+                            count++;
+                            if (count === btns.length) {
+                                srCheckEmpty();
+                                srToast('All recordings deleted', 'success');
+                            }
+                        }
+                    });
+            }
+        });
+    });
+}
+
+// ===== Simple Confirm Dialog =====
+let _srConfirmCallback = null;
+
+function srShowConfirm(title, msg, onYes) {
+    document.getElementById('srConfirmTitle').textContent = title;
+    document.getElementById('srConfirmMsg').textContent = msg;
+    _srConfirmCallback = onYes;
+    document.getElementById('srConfirmYes').onclick = function() {
+        srCloseConfirm();
+        if (_srConfirmCallback) _srConfirmCallback();
+    };
+    document.getElementById('srConfirmOverlay').style.display = 'block';
+    document.getElementById('srConfirmModal').style.display = 'block';
+}
+
+function srCloseConfirm() {
+    document.getElementById('srConfirmOverlay').style.display = 'none';
+    document.getElementById('srConfirmModal').style.display = 'none';
+    _srConfirmCallback = null;
+}
+
+// ===== Toast Notifications =====
+function srToast(msg, type) {
+    const container = document.getElementById('srToastContainer');
+    if (!container) return;
+    const colors = { success: '#22c55e', error: '#ef4444', warning: '#f59e0b', info: '#6366f1' };
+    const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+    const toast = document.createElement('div');
+    toast.style.cssText = 'display:flex;align-items:center;gap:10px;padding:12px 16px;background:#1e293b;border:1px solid #334155;border-radius:10px;color:#f1f5f9;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,0.3);animation:srToastIn 0.3s ease;';
+    toast.innerHTML = '<i class="fas ' + (icons[type] || icons.info) + '" style="color:' + (colors[type] || colors.info) + ';"></i><span>' + msg + '</span>';
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
 }
 
 // ===== CHANGE PASSWORD MODAL =====
